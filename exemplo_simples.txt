@@ -1,0 +1,7 @@
+# Exemplo simples - Operações aritméticas básicas
+ADD R1,R0,R0    # R1 = 0 + 0 = 0
+ADDI R2,R0,5    # R2 = 0 + 5 = 5
+ADDI R3,R0,3    # R3 = 0 + 3 = 3
+ADD R4,R2,R3    # R4 = R2 + R3 = 8
+SUB R5,R4,R2    # R5 = R4 - R2 = 3
+MUL R6,R4,R5    # R6 = R4 * R5 = 24
