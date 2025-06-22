@@ -360,6 +360,7 @@ public class Simulador {
                             logExecucao.add("Execute: " + estacao.getNome() + " completou execução");
                             Instrucao inst = slot.getInstrucao();
                             if (inst != null) inst.setEstadoExecucao(2); // executada
+                            slot.setEstado(EstadoInstrucao.EXECUTADO);
                         }
                     }
                 }
@@ -621,6 +622,7 @@ public class Simulador {
         todas.addAll(estacoesAdd);
         todas.addAll(estacoesMul);
         todas.addAll(estacoesLoad);
+        todas.addAll(estacoesBranches);
         return todas;
     }
 
