@@ -186,6 +186,7 @@ public class Simulador {
     }
 
     public void proximoCiclo() {
+        System.out.println("Executando ciclo: " + cicloAtual);
         if (!simulacaoCompleta) {
 
             writeResult();
@@ -202,6 +203,14 @@ public class Simulador {
                 totalCiclos = cicloAtual - 1;
             }
             cicloAtual++;
+            confereSituacaoROB();
+        }
+    }
+
+    public void confereSituacaoROB() {
+        for (int i = robHead; i != robTail; i = (i + 1) % TAMANHO_ROB) {
+            ReorderBufferSlot slot = rob.get(i);
+            System.out.println("Slot " + i + ": " + slot.getInstrucao() + ", Busy: " + slot.isBusy());
         }
     }
 
@@ -245,20 +254,7 @@ public class Simulador {
                     } else if (estacao.getOp().isBranch()) {
                         System.out.println("Branch detected");
                         if (resultado == 1) {
-                            int quantidadeDescartes = pc < (estacao.getImediato() - 1)
-                                    ? estacao.getImediato() - pc - 1
-                                    : slot.getInstrucao().getCiclosDuracao();
-
-                            pc = estacao.getImediato() - 1; // Atualiza PC se for branch
-                            logExecucao.add("Branch taken: " + slot.getInstrucao().toString() + " -> PC = " + pc);
-                            int posRob = ((rob.indexOf(slot) + 1) % TAMANHO_ROB);
-                            for (int i = 0; i < quantidadeDescartes; i++) {
-                                if (rob.get(i).isBusy()) {
-                                    System.out.println(rob.get(i).getRegistradorPublico());
-                                    rob.get(posRob).setEstado(EstadoInstrucao.CANCELADA);
-                                    rob.get(posRob).limpar();
-                                }
-                            }
+                            executarBEQ(slot);
                         }
                     } else {
                         // Propaga resultado via CDB para estações de reserva que estavam esperando
@@ -272,6 +268,23 @@ public class Simulador {
 
             }
         }
+    }
+
+    private void executarBEQ(ReorderBufferSlot slot) {
+        for (int i = robHead; i != robTail; i = (i + 1) % TAMANHO_ROB) {
+            if (!rob.get(i).equals(slot)) {
+                if (rob.get(i).isBusy()) {
+                    if (rob.get(i).getCicloIssue() != -1 && rob.get(i).getCicloIssue() >= slot.getCicloIssue()) {
+                        Instrucao inst = rob.get(i).getInstrucao();
+                        if (inst != null) {
+                            logExecucao.add("BEQ executado, instrução cancelada: " + inst.toString());
+                        }
+                        rob.get(i).limpar();
+                    }
+                }
+            }
+        }
+        pc = slot.getInstrucao().getImediato() - 1; // Atualiza o PC para o endereço do branch
     }
 
     /*
@@ -330,13 +343,15 @@ public class Simulador {
                 boolean pronta = estacao.prontaParaExecucao();
                 if (estacao.getCiclosRestantes() > 0 && pronta) {
                     ReorderBufferSlot slot = encontrarSlotROB(estacao.getDest());
-                    slot.setEstado(EstadoInstrucao.EXECUTANDO);
-                    if (slot.getCicloExecucao() == -1)
-                        slot.setCicloExecucao(cicloAtual);
-                    boolean terminou = estacao.executarCiclo();
-                    if (terminou) {
-                        slot.setCicloEscrita(cicloAtual);
-                        logExecucao.add("Execute: " + estacao.getNome() + " completou execução");
+                    if (slot != null) {
+                        slot.setEstado(EstadoInstrucao.EXECUTANDO);
+                        if (slot.getCicloExecucao() == -1)
+                            slot.setCicloExecucao(cicloAtual);
+                        boolean terminou = estacao.executarCiclo();
+                        if (terminou) {
+                            slot.setCicloEscrita(cicloAtual);
+                            logExecucao.add("Execute: " + estacao.getNome() + " completou execução");
+                        }
                     }
                 }
                 if (!pronta)
@@ -398,7 +413,7 @@ public class Simulador {
                         estacao.setBusy(true);
                         estacao.setOp(inst.getOp());
                         estacao.setCiclosRestantes(inst.getCiclosDuracao());
-                        System.out.println("INSTRUÇÃO DO ROB: " + slot.getInstrucao().toString());
+                        // System.out.println("INSTRUÇÃO DO ROB: " + slot.getInstrucao().toString());
                         robTail = (robTail + 1) % TAMANHO_ROB;
                     }
                     pc++;
@@ -420,13 +435,14 @@ public class Simulador {
      * e devolve a posição no ROB em que há esse conflito.
      */
     private void verificaDependenciaVDD(String reg1, String reg2, EstacaoDeReserva estacao) {
-        System.out.println("Verificando dependência VDD para: " + reg1 + ", " + reg2);
+        // System.out.println("Verificando dependência VDD para: " + reg1 + ", " +
+        // reg2);
         // Verifica se a instrução depende de outra que ainda não foi completada
         ReorderBufferSlot conflito1 = null, conflito2 = null;
         for (int i = robHead; i != robTail; i = (i + 1) % TAMANHO_ROB) {
             if (rob.get(i).isBusy()) {
                 String regPublico = rob.get(i).getRegistradorPublico();
-                if (regPublico.equals(reg1)) {
+                if (regPublico != null && regPublico.equals(reg1)) {
                     if (conflito1 != null) {
                         if (conflito1.getCicloIssue() < rob.get(i).getCicloIssue()) {
                             conflito1 = rob.get(i);
@@ -434,7 +450,7 @@ public class Simulador {
                     } else {
                         conflito1 = rob.get(i);
                     }
-                } else if (regPublico.equals(reg2)) {
+                } else if (regPublico != null && regPublico.equals(reg2)) {
                     if (conflito2 != null) {
                         if (conflito2.getCicloIssue() < rob.get(i).getCicloIssue()) {
                             conflito2 = rob.get(i);

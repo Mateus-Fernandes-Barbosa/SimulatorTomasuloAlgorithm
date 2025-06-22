@@ -21,19 +21,19 @@ public class Instrucao {
         this.instrucaoOriginal = instrucaoOriginal;
         switch (op) {
                 case ADD:
-                    this.ciclosDuracao = 3;
+                    this.ciclosDuracao = 1;
                     break;
                 case SUB:
-                    this.ciclosDuracao = 3;
+                    this.ciclosDuracao = 1;
                     break;
                 case ADDI:
-                    this.ciclosDuracao = 3;
+                    this.ciclosDuracao = 1;
                     break;
                 case SUBI:
-                    this.ciclosDuracao = 3;
+                    this.ciclosDuracao = 1;
                     break;
                 case BEQ:
-                    this.ciclosDuracao = 3;
+                    this.ciclosDuracao = 2;
                     break;
                 case MUL:
                     this.ciclosDuracao = 3;
