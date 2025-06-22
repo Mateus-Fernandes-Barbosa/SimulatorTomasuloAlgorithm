@@ -327,9 +327,9 @@ public class SimuladorMain extends JFrame {
     
     private void reiniciar() {
         simulador.reiniciar();
-        btnProximoCiclo.setEnabled(false);
-        btnExecutarCompleto.setEnabled(false);
-        btnReiniciar.setEnabled(false);
+        btnProximoCiclo.setEnabled(true);
+        btnExecutarCompleto.setEnabled(true);
+        btnReiniciar.setEnabled(true);
         atualizarInterface();
     }
     
@@ -346,33 +346,45 @@ public class SimuladorMain extends JFrame {
         modeloInstrucoes.setRowCount(0);
         
         List<ReorderBufferSlot> rob = simulador.getReorderBufferState();
+        List<Instrucao> instrucoes = simulador.getInstrucoes();
         
         // Cria um mapa para facilitar a busca de informações por instrução
         for (int i = 0; i < simulador.getTotalInstrucoes(); i++) {
-            String instrucao = "Instrução " + (i + 1);
+            Instrucao instrucao = instrucoes.get(i);
+            String instrucaoString = (i + 1) + ": " + instrucao.toString() + ((instrucao.getQtdeExecucoes() == 0) ? "" : " (" + instrucao.getQtdeExecucoes() + ")");
             String issue = "-";
             String execute = "-";
             String writeResult = "-";
             String commit = "-";
             
-            // Procura informações nos slots do ROB
-            for (ReorderBufferSlot slot : rob) {
-                if (slot.isBusy() && slot.getInstrucao() != null) {
-                    // Aqui seria necessário uma forma de identificar qual instrução
-                    // Por simplicidade, vamos mostrar apenas as instruções ativas
+            // if (i < simulador.getPc()) {
+            //     issue = "✓";
+            //     if (i < simulador.getInstrucoesExecutadas()) {
+            //         execute = "✓";
+            //         writeResult = "✓";
+            //         commit = "✓";
+            //     }
+            // }
+
+            if (instrucao.getEstadoExecucao() == -1) {
+                instrucaoString += " (Pulada)";
+            } else {
+                if(instrucao.getEstadoExecucao() >= 1) {
+                    issue = "✓";
                 }
-            }
-            
-            if (i < simulador.getPc()) {
-                issue = "✓";
-                if (i < simulador.getInstrucoesExecutadas()) {
+                if(instrucao.getEstadoExecucao() >= 2) {
                     execute = "✓";
+                }
+                if(instrucao.getEstadoExecucao() >= 3) {
                     writeResult = "✓";
+                }
+                if(instrucao.getEstadoExecucao() >= 4) {
                     commit = "✓";
                 }
             }
             
-            modeloInstrucoes.addRow(new Object[]{instrucao, issue, execute, writeResult, commit});
+            
+            modeloInstrucoes.addRow(new Object[]{instrucaoString, issue, execute, writeResult, commit});
         }
     }
     
@@ -404,6 +416,7 @@ public class SimuladorMain extends JFrame {
             Object[] linha = {
                 i,
                 slot.isBusy() ? "Sim" : "Não",
+                // slot.getInstrucao() != null ? slot.getInstrucao().toString() + ((slot.getInstrucao().getQtdeExecucoes() == 0) ? "" : " (" + slot.getInstrucao().getQtdeExecucoes() + ")") + "-" : "-",
                 slot.getInstrucao() != null ? slot.getInstrucao().toString() : "-",
                 slot.isBusy() ? slot.getEstado().getDescricao() : "-",
                 slot.getRegistradorPublico() != null ? slot.getRegistradorPublico() : "-",

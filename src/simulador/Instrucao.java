@@ -11,6 +11,9 @@ public class Instrucao {
     private int imediato; // Valor imediato
     private String instrucaoOriginal; // Texto original da instrução
     private int ciclosDuracao; // Duração em ciclos da instrução
+    // Adiciona campo para controle de estado de execução
+    private int estadoExecucao = 0; // -1: pulada, 0: nenhuma, 1: lida, 2: executada, 3: resultado escrito, 4: commitada
+    private int qtdeExecucoes = 0;
     
     public Instrucao(OpCode op, String destino, String reg1, String reg2, int imediato, String instrucaoOriginal) {
         this.op = op;
@@ -56,6 +59,7 @@ public class Instrucao {
                 default:
                     this.ciclosDuracao = 1;
             }
+        this.estadoExecucao = 0;
     }
     
     // Construtor para instruções sem valor imediato
@@ -121,6 +125,27 @@ public class Instrucao {
         return ciclosDuracao;
     }
     
+    public int getEstadoExecucao() {
+        return estadoExecucao;
+    }
+    public void setEstadoExecucao(int estadoExecucao) {
+        if ( estadoExecucao > this.estadoExecucao + 2){ // Verifica se o novo estado é válido
+            return;
+        }
+        this.estadoExecucao = estadoExecucao;
+    }
+
+    public void addExecucao() {
+        this.qtdeExecucoes++;
+    }
+
+    public void resetExecucoes() {
+        this.qtdeExecucoes = 0;
+    }
+
+    public int getQtdeExecucoes() {
+        return qtdeExecucoes;
+    }
     
     @Override
     public String toString() {

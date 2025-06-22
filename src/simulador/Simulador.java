@@ -124,6 +124,11 @@ public class Simulador {
 
     public void reiniciar() {
 
+        for (int i = 0; i < instrucoes.size(); i++) {
+            instrucoes.get(i).setEstadoExecucao(0);
+            instrucoes.get(i).resetExecucoes();
+        }
+
         // Inicializando Banco de Registradores
         bancoRegistradores = new HashMap<>();
         for (int i = 0; i <= NUM_REGISTRADORES_PUBLICOS; i++) {
@@ -237,6 +242,8 @@ public class Simulador {
                     slot.setCicloCommit(cicloAtual);
                     slot.setEstado(EstadoInstrucao.ESCRITA);
                     slot.setPronto(true);
+                    Instrucao inst = slot.getInstrucao();
+                    if (inst != null) inst.setEstadoExecucao(3); // resultado escrito
                     if (estacao.getOp().isMemoryOperation()) {
                         // Para LOAD, lê da memória
                         if (estacao.getOp() == OpCode.LOAD) {
@@ -351,6 +358,8 @@ public class Simulador {
                         if (terminou) {
                             slot.setCicloEscrita(cicloAtual);
                             logExecucao.add("Execute: " + estacao.getNome() + " completou execução");
+                            Instrucao inst = slot.getInstrucao();
+                            if (inst != null) inst.setEstadoExecucao(2); // executada
                         }
                     }
                 }
@@ -391,7 +400,6 @@ public class Simulador {
                         estacao.setBusy(true);
                         estacao.setOp(inst.getOp());
                         estacao.setCiclosRestantes(inst.getCiclosDuracao());
-                        // System.out.println("INSTRUÇÃO DO ROB: " + slot.getInstrucao().toString());
                         robTail = (robTail + 1) % TAMANHO_ROB;
                     } else {
                         ReorderBufferSlot slot = rob.get(robTail);
@@ -413,10 +421,13 @@ public class Simulador {
                         estacao.setBusy(true);
                         estacao.setOp(inst.getOp());
                         estacao.setCiclosRestantes(inst.getCiclosDuracao());
-                        // System.out.println("INSTRUÇÃO DO ROB: " + slot.getInstrucao().toString());
                         robTail = (robTail + 1) % TAMANHO_ROB;
                     }
                     pc++;
+                    if (inst.getEstadoExecucao() > 0) {
+                        inst.addExecucao();                        
+                    }
+                    inst.setEstadoExecucao(1); // lida
                 } else {
                     logExecucao.add("Nenhuma estação de reserva disponível, não foi possível emitir a instrução: "
                             + inst.toString());
@@ -523,7 +534,7 @@ public class Simulador {
         if (slot.isBusy() && slot.isPronto() && slot.getCicloCommit() != cicloAtual) {
             Instrucao inst = slot.getInstrucao();
             slot.setCicloCommit(cicloAtual);
-            //System.out.println("INSTRUÇÃO ROB: " + slot.getInstrucao().toString());
+            if (inst != null) inst.setEstadoExecucao(4); // commitada
             // Atualiza banco publico se a instrução escreve em registrador
             if (inst.podeEscrever() && slot.getRegistradorPublico() != null) {
                 String regPub = slot.getRegistradorPublico();
@@ -644,6 +655,10 @@ public class Simulador {
 
     public int getInstrucoesExecutadas() {
         return instrucoesExecutadas;
+    }
+
+    public List<Instrucao> getInstrucoes() {
+        return instrucoes;
     }
 
     public List<String> getLogExecucao() {
