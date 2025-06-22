@@ -193,6 +193,7 @@ public class Simulador {
     public void proximoCiclo() {
         //System.out.println("Executando ciclo: " + cicloAtual);
         if (!simulacaoCompleta) {
+            logExecucao.add("Ciclo " + (cicloAtual+1));
 
             writeResult();
 
@@ -201,11 +202,12 @@ public class Simulador {
             issue();
 
             commit();
-
             if (pc == instrucoes.size() && robVazio()) {
                 simulacaoCompleta = true;
                 logExecucao.add("Simulação completa. Total de ciclos gastos: " + totalCiclos);
                 totalCiclos = cicloAtual - 1;
+            } else {
+                logExecucao.add("-------------------------------------------------------------");
             }
             cicloAtual++;
             confereSituacaoROB();
@@ -269,7 +271,7 @@ public class Simulador {
                     }
 
                     slot.marcarResultadoPronto(resultado, cicloAtual);
-                    logExecucao.add("Write Result: " + estacao.getNome() + " -> ROB" + regPrivado + " = " + resultado);
+                    // logExecucao.add("Write Result: " + estacao.getNome() + " -> ROB" + regPrivado + " = " + resultado);
                     estacao.limpar();
                 }
 
@@ -357,15 +359,21 @@ public class Simulador {
                         boolean terminou = estacao.executarCiclo();
                         if (terminou) {
                             slot.setCicloEscrita(cicloAtual);
-                            logExecucao.add("Execute: " + estacao.getNome() + " completou execução");
+                            // logExecucao.add("Execute: " + estacao.getNome() + " completou execução");
                             Instrucao inst = slot.getInstrucao();
                             if (inst != null) inst.setEstadoExecucao(2); // executada
                             slot.setEstado(EstadoInstrucao.EXECUTADO);
                         }
                     }
                 }
-                if (!pronta)
+                if (!pronta) {
                     ciclosBolha++;
+                    // Log detalhado do motivo da bolha
+                    String motivo = "Bolha criada: estação " + estacao.getNome() + " aguardando operandos ";
+                    if (estacao.getQj() != null) motivo += "Qj=" + estacao.getQj() + " ";
+                    if (estacao.getQk() != null) motivo += "Qk=" + estacao.getQk();
+                    logExecucao.add(motivo.trim());
+                }
             }
         }
 
@@ -384,10 +392,8 @@ public class Simulador {
                         slot.setInstrucao(inst);
                         slot.setEstado(EstadoInstrucao.PROCESSANDO);
                         slot.setCicloIssue(cicloAtual);
-                        String reg1 = inst.getReg1();
-                        String reg2 = inst.getReg2();
                         String regPublico = inst.getRd();
-                        verificaDependenciaVDD(reg1, reg2, estacao);
+                        verificaDependenciaVDD(inst, estacao);
                         String regPrivado = filaRegistradoresLivres.poll();
                         bancoPrivado.put(regPrivado, bancoRegistradores.get(regPublico));
                         slot.setRegistradorRenomeado(regPrivado);
@@ -409,9 +415,7 @@ public class Simulador {
                         slot.setPronto(false);
                         slot.setEstado(EstadoInstrucao.PROCESSANDO);
                         slot.setCicloIssue(cicloAtual);
-                        String reg1 = inst.getReg1();
-                        String reg2 = inst.getReg2();
-                        verificaDependenciaVDD(reg1, reg2, estacao);
+                        verificaDependenciaVDD(inst, estacao);
                         int imediato = inst.getImediato();
                         if (imediato != 0) {
                             estacao.setImediato(imediato);
@@ -446,10 +450,12 @@ public class Simulador {
      * atual e alguma instrução ROB
      * e devolve a posição no ROB em que há esse conflito.
      */
-    private void verificaDependenciaVDD(String reg1, String reg2, EstacaoDeReserva estacao) {
+    private void verificaDependenciaVDD(Instrucao inst, EstacaoDeReserva estacao) {
         // System.out.println("Verificando dependência VDD para: " + reg1 + ", " +
         // reg2);
         // Verifica se a instrução depende de outra que ainda não foi completada
+        String reg1 = inst.getReg1();
+        String reg2 = inst.getReg2();
         ReorderBufferSlot conflito1 = null, conflito2 = null;
         for (int i = robHead; i != robTail; i = (i + 1) % TAMANHO_ROB) {
             if (rob.get(i).isBusy()) {
@@ -474,7 +480,7 @@ public class Simulador {
             }
         }
         if (conflito1 != null) {
-            logExecucao.add("Conflito VDD encontrado: " + reg1 + " em " + conflito1.getInstrucao().toString());
+            logExecucao.add("Conflito verdadeiro: " + "instrução " + inst.toString() + " em conflito com " + conflito1.getInstrucao().toString() + " em " + reg1);
             if (conflito1.isPronto()) {
                 estacao.setVj(bancoPrivado.get(conflito1.getRegistradorRenomeado()));
             } else {
@@ -484,7 +490,7 @@ public class Simulador {
             estacao.setVj(bancoRegistradores.get(reg1));
         }
         if (conflito2 != null) {
-            logExecucao.add("Conflito VDD encontrado: " + reg2 + " em " + conflito2.getInstrucao().toString());
+            logExecucao.add("Conflito verdadeiro: " + "instrução " + inst.toString() + " em conflito com " + conflito2.getInstrucao().toString() + " em " + reg2);
             if (conflito2.isPronto()) {
                 estacao.setVk(bancoPrivado.get(conflito2.getRegistradorRenomeado()));
             } else {

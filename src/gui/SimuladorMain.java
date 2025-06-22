@@ -479,8 +479,8 @@ public class SimuladorMain extends JFrame {
         StringBuilder log = new StringBuilder();
         List<String> logs = simulador.getLogExecucao();
         
-        // Mostra apenas as últimas 50 linhas para não sobrecarregar a interface
-        int inicio = Math.max(0, logs.size() - 50);
+        // Mostra apenas as últimas 100 linhas para não sobrecarregar a interface
+        int inicio = Math.max(0, logs.size() - 100);
         for (int i = inicio; i < logs.size(); i++) {
             log.append(logs.get(i)).append("\n");
         }
