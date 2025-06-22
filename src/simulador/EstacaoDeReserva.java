@@ -28,6 +28,19 @@ public class EstacaoDeReserva {
         this.ciclosRestantes = 0;
     }
     
+    public EstacaoDeReserva(EstacaoDeReserva outra) {
+        this.nome = outra.nome;
+        this.busy = outra.busy;
+        this.op = outra.op;
+        this.vj = outra.vj;
+        this.vk = outra.vk;
+        this.qj = outra.qj;
+        this.qk = outra.qk;
+        this.dest = outra.dest;
+        this.imediato = outra.imediato;
+        this.ciclosRestantes = outra.ciclosRestantes;
+    }
+    
     /**
      * Limpa a estação de reserva
      */

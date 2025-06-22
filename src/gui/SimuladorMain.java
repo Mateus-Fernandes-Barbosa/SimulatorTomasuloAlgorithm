@@ -29,6 +29,7 @@ public class SimuladorMain extends JFrame {
     private JLabel labelInstrucoes;
     private JLabel labelCiclosBolha;
     private JButton btnCarregar;
+    private JButton btnCicloAnterior;
     private JButton btnProximoCiclo;
     private JButton btnExecutarCompleto;
     private JButton btnReiniciar;
@@ -76,6 +77,9 @@ public class SimuladorMain extends JFrame {
         btnCarregar = new JButton("Carregar Arquivo");
         btnCarregar.addActionListener(e -> carregarArquivo());
         
+        btnCicloAnterior = new JButton("Ciclo Anterior");
+        btnCicloAnterior.addActionListener(e -> cicloAnterior());
+
         btnProximoCiclo = new JButton("Próximo Ciclo");
         btnProximoCiclo.addActionListener(e -> proximoCiclo());
         btnProximoCiclo.setEnabled(false);
@@ -100,6 +104,7 @@ public class SimuladorMain extends JFrame {
         
         painel.add(btnCarregar);
         painel.add(new JSeparator(SwingConstants.VERTICAL));
+        painel.add(btnCicloAnterior);
         painel.add(btnProximoCiclo);
         painel.add(btnExecutarCompleto);
         painel.add(btnReiniciar);
@@ -260,6 +265,7 @@ public class SimuladorMain extends JFrame {
                 btnProximoCiclo.setEnabled(true);
                 btnExecutarCompleto.setEnabled(true);
                 btnReiniciar.setEnabled(true);
+                btnExecutarCompleto.setEnabled(true);
                 atualizarInterface();
                 JOptionPane.showMessageDialog(this, 
                     "Arquivo carregado com sucesso!\n" + 
@@ -273,6 +279,17 @@ public class SimuladorMain extends JFrame {
         }
     }
     
+    private void cicloAnterior() {
+        if (simulador.getCicloAtual() > 0) {
+            simulador.cicloAnterior();
+            atualizarInterface();
+        } else {
+            JOptionPane.showMessageDialog(this,
+                "Já estamos no primeiro ciclo!",
+                "Aviso", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
     private void proximoCiclo() {
         simulador.proximoCiclo();
         atualizarInterface();
@@ -327,9 +344,9 @@ public class SimuladorMain extends JFrame {
     
     private void reiniciar() {
         simulador.reiniciar();
-        btnProximoCiclo.setEnabled(false);
-        btnExecutarCompleto.setEnabled(false);
-        btnReiniciar.setEnabled(false);
+        btnProximoCiclo.setEnabled(true);
+        btnExecutarCompleto.setEnabled(true);
+        btnReiniciar.setEnabled(true);
         atualizarInterface();
     }
     
@@ -344,36 +361,41 @@ public class SimuladorMain extends JFrame {
     
     private void atualizarTabelaInstrucoes() {
         modeloInstrucoes.setRowCount(0);
-        
-        List<ReorderBufferSlot> rob = simulador.getReorderBufferState();
-        
-        // Cria um mapa para facilitar a busca de informações por instrução
+        List<List<Instrucao>> instancias = simulador.getInstrucoesInstancias();
         for (int i = 0; i < simulador.getTotalInstrucoes(); i++) {
-            String instrucao = "Instrução " + (i + 1);
-            String issue = "-";
-            String execute = "-";
-            String writeResult = "-";
-            String commit = "-";
-            
-            // Procura informações nos slots do ROB
-            for (ReorderBufferSlot slot : rob) {
-                if (slot.isBusy() && slot.getInstrucao() != null) {
-                    // Aqui seria necessário uma forma de identificar qual instrução
-                    // Por simplicidade, vamos mostrar apenas as instruções ativas
-                }
-            }
-            
-            if (i < simulador.getPc()) {
-                issue = "✓";
-                if (i < simulador.getInstrucoesExecutadas()) {
-                    execute = "✓";
-                    writeResult = "✓";
-                    commit = "✓";
-                }
-            }
-            
-            modeloInstrucoes.addRow(new Object[]{instrucao, issue, execute, writeResult, commit});
+            List<Instrucao> lista = instancias.get(i);
+            Instrucao atual = lista.get(lista.size() - 1);
+            String instrucaoString = (i + 1) + ": " + atual.toString().split("\\[")[0];
+            atualizarLinhaInstrucao(i, atual, instrucaoString);
         }
+    }
+
+    // Novo método para atualizar uma linha da tabela de instruções
+    private void atualizarLinhaInstrucao(int linha, Instrucao instrucao, String instrucaoString) {
+        String issue = "-", execute = "-", writeResult = "-", commit = "-";
+        switch (instrucao.getEstado()) {
+            case -1: // pulada
+                issue = execute = writeResult = commit = "PULADA";
+                break;
+            case 0:
+                break;
+            case 1:
+                issue = "✓";
+                break;
+            case 2:
+                issue = execute = "✓";
+                break;
+            case 3:
+                issue = execute = writeResult = "✓";
+                break;
+            case 4:
+                issue = execute = writeResult = commit = "✓";
+                break;
+        }
+        if (linha < modeloInstrucoes.getRowCount()) {
+            modeloInstrucoes.removeRow(linha);
+        }
+        modeloInstrucoes.insertRow(linha, new Object[]{instrucaoString, issue, execute, writeResult, commit});
     }
     
     private void atualizarTabelaEstacoes() {

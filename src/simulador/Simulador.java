@@ -7,6 +7,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Stack;
 
 public class Simulador {
     // Configurações do simulador
@@ -36,7 +37,7 @@ public class Simulador {
     private Map<Integer, Float> memoria;
 
     // Estado do simulador
-    private List<Instrucao> instrucoes;
+    private List<List<Instrucao>> instrucoesInstancias;
     private int pc; // Program Counter
     private int cicloAtual;
     private int totalCiclos;
@@ -46,6 +47,128 @@ public class Simulador {
     // Estatísticas
     private int instrucoesExecutadas;
     private List<String> logExecucao;
+
+    // Adicione este atributo à sua classe Simulador:
+    private Stack<EstadoSimulador> historicoCiclos = new Stack<>();
+
+    // Classe para armazenar o estado do simulador
+    private static class EstadoSimulador {
+        Map<String, Float> bancoRegistradores;
+        Map<String, Float> bancoPrivado;
+        Map<String, String> mapaRenomeacao;
+        Queue<String> filaRegistradoresLivres;
+        List<ReorderBufferSlot> rob;
+        int robHead;
+        int robTail;
+        List<EstacaoDeReserva> estacoesAdd;
+        List<EstacaoDeReserva> estacoesMul;
+        List<EstacaoDeReserva> estacoesLoad;
+        List<EstacaoDeReserva> estacoesBranches;
+        Map<Integer, Float> memoria;
+        List<List<Instrucao>> instrucoesInstancias;
+        int pc;
+        int cicloAtual;
+        int totalCiclos;
+        int ciclosBolha;
+        boolean simulacaoCompleta;
+        int instrucoesExecutadas;
+        List<String> logExecucao;
+
+        // Construtor copia profunda
+        EstadoSimulador(Simulador sim) {
+            this.bancoRegistradores = new HashMap<>(sim.bancoRegistradores);
+            this.bancoPrivado = new HashMap<>(sim.bancoPrivado);
+            this.mapaRenomeacao = new HashMap<>(sim.mapaRenomeacao);
+            this.filaRegistradoresLivres = new LinkedList<>(sim.filaRegistradoresLivres);
+            this.rob = new ArrayList<>();
+            for (ReorderBufferSlot slot : sim.rob) {
+                ReorderBufferSlot novoSlot = new ReorderBufferSlot(slot);
+                // deep copy da instrução associada ao slot
+                if (slot.getInstrucao() != null) {
+                    novoSlot.setInstrucao(new Instrucao(slot.getInstrucao()));
+                }
+                this.rob.add(novoSlot);
+            }
+            this.robHead = sim.robHead;
+            this.robTail = sim.robTail;
+            this.estacoesAdd = new ArrayList<>();
+            for (EstacaoDeReserva e : sim.estacoesAdd)
+                this.estacoesAdd.add(new EstacaoDeReserva(e));
+            this.estacoesMul = new ArrayList<>();
+            for (EstacaoDeReserva e : sim.estacoesMul)
+                this.estacoesMul.add(new EstacaoDeReserva(e));
+            this.estacoesLoad = new ArrayList<>();
+            for (EstacaoDeReserva e : sim.estacoesLoad)
+                this.estacoesLoad.add(new EstacaoDeReserva(e));
+            this.estacoesBranches = new ArrayList<>();
+            for (EstacaoDeReserva e : sim.estacoesBranches)
+                this.estacoesBranches.add(new EstacaoDeReserva(e));
+            this.memoria = new HashMap<>(sim.memoria);
+            // Cópia profunda das instâncias de instruções
+            this.instrucoesInstancias = new ArrayList<>();
+            for (List<Instrucao> lista : sim.instrucoesInstancias) {
+                List<Instrucao> novaLista = new ArrayList<>();
+                for (Instrucao inst : lista) {
+                    novaLista.add(new Instrucao(inst)); // Usa o copy constructor
+                }
+                this.instrucoesInstancias.add(novaLista);
+            }
+            this.pc = sim.pc;
+            this.cicloAtual = sim.cicloAtual;
+            this.totalCiclos = sim.totalCiclos;
+            this.ciclosBolha = sim.ciclosBolha;
+            this.simulacaoCompleta = sim.simulacaoCompleta;
+            this.instrucoesExecutadas = sim.instrucoesExecutadas;
+            this.logExecucao = new ArrayList<>(sim.logExecucao);
+        }
+
+        // Método para restaurar o estado no simulador
+        void restaurar(Simulador sim) {
+            sim.bancoRegistradores = new HashMap<>(this.bancoRegistradores);
+            sim.bancoPrivado = new HashMap<>(this.bancoPrivado);
+            sim.mapaRenomeacao = new HashMap<>(this.mapaRenomeacao);
+            sim.filaRegistradoresLivres = new LinkedList<>(this.filaRegistradoresLivres);
+            sim.rob = new ArrayList<>();
+            for (ReorderBufferSlot slot : this.rob) {
+                ReorderBufferSlot novoSlot = new ReorderBufferSlot(slot);
+                if (slot.getInstrucao() != null) {
+                    novoSlot.setInstrucao(new Instrucao(slot.getInstrucao()));
+                }
+                sim.rob.add(novoSlot);
+            }
+            sim.robHead = this.robHead;
+            sim.robTail = this.robTail;
+            sim.estacoesAdd = new ArrayList<>();
+            for (EstacaoDeReserva e : this.estacoesAdd)
+                sim.estacoesAdd.add(new EstacaoDeReserva(e));
+            sim.estacoesMul = new ArrayList<>();
+            for (EstacaoDeReserva e : this.estacoesMul)
+                sim.estacoesMul.add(new EstacaoDeReserva(e));
+            sim.estacoesLoad = new ArrayList<>();
+            for (EstacaoDeReserva e : this.estacoesLoad)
+                sim.estacoesLoad.add(new EstacaoDeReserva(e));
+            sim.estacoesBranches = new ArrayList<>();
+            for (EstacaoDeReserva e : this.estacoesBranches)
+                sim.estacoesBranches.add(new EstacaoDeReserva(e));
+            sim.memoria = new HashMap<>(this.memoria);
+            // Cópia profunda das instâncias de instruções
+            sim.instrucoesInstancias = new ArrayList<>();
+            for (List<Instrucao> lista : this.instrucoesInstancias) {
+                List<Instrucao> novaLista = new ArrayList<>();
+                for (Instrucao inst : lista) {
+                    novaLista.add(new Instrucao(inst)); // Usa o copy constructor
+                }
+                sim.instrucoesInstancias.add(novaLista);
+            }
+            sim.pc = this.pc;
+            sim.cicloAtual = this.cicloAtual;
+            sim.totalCiclos = this.totalCiclos;
+            sim.ciclosBolha = this.ciclosBolha;
+            sim.simulacaoCompleta = this.simulacaoCompleta;
+            sim.instrucoesExecutadas = this.instrucoesExecutadas;
+            sim.logExecucao = new ArrayList<>(this.logExecucao);
+        }
+    }
 
     /**
      * Construtor do simulador
@@ -112,7 +235,7 @@ public class Simulador {
         }
 
         // Inicializando estado do simulador
-        instrucoes = new ArrayList<>();
+        instrucoesInstancias = new ArrayList<>();
         pc = 0;
         cicloAtual = 0;
         totalCiclos = 0;
@@ -120,6 +243,18 @@ public class Simulador {
         simulacaoCompleta = false;
         instrucoesExecutadas = 0;
         logExecucao = new ArrayList<>();
+        // Limpa instruções do ROB e das estações de reserva
+        for (ReorderBufferSlot slot : rob) {
+            slot.limpar();
+        }
+        for (EstacaoDeReserva e : estacoesAdd)
+            e.limpar();
+        for (EstacaoDeReserva e : estacoesMul)
+            e.limpar();
+        for (EstacaoDeReserva e : estacoesLoad)
+            e.limpar();
+        for (EstacaoDeReserva e : estacoesBranches)
+            e.limpar();
     }
 
     public void reiniciar() {
@@ -183,10 +318,23 @@ public class Simulador {
         simulacaoCompleta = false;
         instrucoesExecutadas = 0;
         logExecucao = new ArrayList<>();
+        // Limpa instruções do ROB e das estações de reserva
+        for (ReorderBufferSlot slot : rob) {
+            slot.limpar();
+        }
+        for (EstacaoDeReserva e : estacoesAdd)
+            e.limpar();
+        for (EstacaoDeReserva e : estacoesMul)
+            e.limpar();
+        for (EstacaoDeReserva e : estacoesLoad)
+            e.limpar();
+        for (EstacaoDeReserva e : estacoesBranches)
+            e.limpar();
     }
 
     public void proximoCiclo() {
         if (!simulacaoCompleta) {
+            historicoCiclos.push(new EstadoSimulador(this)); // Salva o estado atual
 
             writeResult();
 
@@ -196,7 +344,7 @@ public class Simulador {
 
             commit();
 
-            if (pc == instrucoes.size() && robVazio()) {
+            if (todasInstrucoesFinalizadas() && robVazio()) {
                 simulacaoCompleta = true;
                 logExecucao.add("Simulação completa. Total de ciclos gastos: " + totalCiclos);
                 totalCiclos = cicloAtual - 1;
@@ -206,21 +354,14 @@ public class Simulador {
     }
 
     void writeResult() {
-        // Verifica estações de reserva que terminaram a execução
         List<EstacaoDeReserva> todasEstacoes = new ArrayList<>();
         todasEstacoes.addAll(estacoesAdd);
         todasEstacoes.addAll(estacoesMul);
         todasEstacoes.addAll(estacoesLoad);
         todasEstacoes.addAll(estacoesBranches);
-
         for (EstacaoDeReserva estacao : todasEstacoes) {
-            // System.out.println(
-            // "Ciclos restantes para a estação " + estacao.getNome() + ": " +
-            // estacao.getCiclosRestantes());
             if (estacao.isBusy() && estacao.getCiclosRestantes() == 0) {
                 String regPrivado = estacao.getDest();
-
-                // Atualiza o slot do ROB
                 ReorderBufferSlot slot = encontrarSlotROB(regPrivado);
                 if (slot.getCicloEscrita() != cicloAtual) {
                     Float resultado = estacao.calcularResultado();
@@ -228,48 +369,45 @@ public class Simulador {
                     slot.setCicloCommit(cicloAtual);
                     slot.setEstado(EstadoInstrucao.ESCRITA);
                     slot.setPronto(true);
+                    // Atualiza estado da instrução
+                    if (slot.getInstrucao() != null)
+                        slot.getInstrucao().setEstado(3); // Write result
                     if (estacao.getOp().isMemoryOperation()) {
-                        // Para LOAD, lê da memória
                         if (estacao.getOp() == OpCode.LOAD) {
                             int endereco = resultado.intValue();
                             resultado = memoria.getOrDefault(endereco, 0.0f);
-
-                            // Propaga resultado via CDB para estações de reserva que estavam esperando
                             propagarResultadoCDB(regPrivado, resultado);
-                        } else { // STORE
+                        } else {
                             int endereco = resultado.intValue();
                             Float valor = bancoPrivado.get(regPrivado);
                             memoria.put(endereco, valor);
-                            resultado = valor; // Para STORE, o resultado é o valor armazenado
+                            resultado = valor;
                         }
                     } else if (estacao.getOp().isBranch()) {
-                        System.out.println("Branch detected");
                         if (resultado == 1) {
-                            int quantidadeDescartes = pc < (estacao.getImediato() - 1)
-                                    ? estacao.getImediato() - pc - 1
-                                    : slot.getInstrucao().getCiclosDuracao();
-
-                            pc = estacao.getImediato() - 1; // Atualiza PC se for branch
-                            logExecucao.add("Branch taken: " + slot.getInstrucao().toString() + " -> PC = " + pc);
-                            int posRob = ((rob.indexOf(slot) + 1) % TAMANHO_ROB);
-                            for (int i = 0; i < quantidadeDescartes; i++) {
-                                if (rob.get(i).isBusy()) {
-                                    System.out.println(rob.get(i).getRegistradorPublico());
-                                    rob.get(posRob).setEstado(EstadoInstrucao.CANCELADA);
-                                    rob.get(posRob).limpar();
+                            int branchIndex = pc - 1;
+                            for (int i = branchIndex + 1; i < instrucoesInstancias.size(); i++) {
+                                Instrucao atual = getInstrucaoAtual(i);
+                                if (atual.getEstado() > 0) {
+                                    Instrucao nova = new Instrucao(atual);
+                                    nova.setEstado(0);
+                                    nova.setInstanciaId(atual.getInstanciaId() + 1);
+                                    instrucoesInstancias.get(i).add(nova);
+                                }
+                                // Marque todas as instâncias antigas como puladas
+                                List<Instrucao> lista = instrucoesInstancias.get(i);
+                                for (int j = 0; j < lista.size() - 1; j++) {
+                                    lista.get(j).setEstado(-1);
                                 }
                             }
                         }
                     } else {
-                        // Propaga resultado via CDB para estações de reserva que estavam esperando
                         propagarResultadoCDB(regPrivado, resultado);
                     }
-
                     slot.marcarResultadoPronto(resultado, cicloAtual);
                     logExecucao.add("Write Result: " + estacao.getNome() + " -> ROB" + regPrivado + " = " + resultado);
                     estacao.limpar();
                 }
-
             }
         }
     }
@@ -318,38 +456,42 @@ public class Simulador {
      * Fase de Execução: Inicia execução de operações prontas
      */
     private void execute() {
-
         List<EstacaoDeReserva> todasEstacoes = new ArrayList<>();
         todasEstacoes.addAll(estacoesAdd);
         todasEstacoes.addAll(estacoesMul);
         todasEstacoes.addAll(estacoesLoad);
         todasEstacoes.addAll(estacoesBranches);
-
         for (EstacaoDeReserva estacao : todasEstacoes) {
             if (estacao.isBusy()) {
                 boolean pronta = estacao.prontaParaExecucao();
                 if (estacao.getCiclosRestantes() > 0 && pronta) {
                     ReorderBufferSlot slot = encontrarSlotROB(estacao.getDest());
-                    slot.setEstado(EstadoInstrucao.EXECUTANDO);
-                    if (slot.getCicloExecucao() == -1)
-                        slot.setCicloExecucao(cicloAtual);
-                    boolean terminou = estacao.executarCiclo();
-                    if (terminou) {
-                        slot.setCicloEscrita(cicloAtual);
-                        logExecucao.add("Execute: " + estacao.getNome() + " completou execução");
+                    if (slot != null) {
+                        slot.setEstado(EstadoInstrucao.EXECUTANDO);
+                        if (slot.getCicloExecucao() == -1)
+                            slot.setCicloExecucao(cicloAtual);
+                        boolean terminou = estacao.executarCiclo();
+                        if (terminou) {
+                            slot.setCicloEscrita(cicloAtual);
+                            logExecucao.add("Execute: " + estacao.getNome() + " completou execução");
+                            // Atualiza estado da instrução
+                            if (slot.getInstrucao() != null)
+                                slot.getInstrucao().setEstado(2); // Executada
+                        }
+                    } else {
+                        estacao.limpar();
                     }
                 }
                 if (!pronta)
                     ciclosBolha++;
             }
         }
-
     }
 
     private void issue() {
-        if (pc < instrucoes.size()) {
+        if (pc < instrucoesInstancias.size()) {
+            Instrucao inst = getInstrucaoAtual(pc);
             if (!rob.get(robTail).isBusy()) {
-                Instrucao inst = instrucoes.get(pc);
                 EstacaoDeReserva estacao = encontrarEstacaoLivre(inst.getOp());
                 if (estacao != null) {
                     if (inst.podeEscrever() && !filaRegistradoresLivres.isEmpty()) {
@@ -376,7 +518,7 @@ public class Simulador {
                         estacao.setBusy(true);
                         estacao.setOp(inst.getOp());
                         estacao.setCiclosRestantes(inst.getCiclosDuracao());
-                        // System.out.println("INSTRUÇÃO DO ROB: " + slot.getInstrucao().toString());
+                        inst.setEstado(1); // Issue
                         robTail = (robTail + 1) % TAMANHO_ROB;
                     } else {
                         ReorderBufferSlot slot = rob.get(robTail);
@@ -398,17 +540,16 @@ public class Simulador {
                         estacao.setBusy(true);
                         estacao.setOp(inst.getOp());
                         estacao.setCiclosRestantes(inst.getCiclosDuracao());
-                        System.out.println("INSTRUÇÃO DO ROB: " + slot.getInstrucao().toString());
+                        inst.setEstado(1); // Issue
                         robTail = (robTail + 1) % TAMANHO_ROB;
                     }
                     pc++;
                 } else {
-                    logExecucao.add("Nenhuma estação de reserva disponível, não foi possível emitir a instrução: "
-                            + inst.toString());
+                    logExecucao.add("Nenhuma estação de reserva disponível, não foi possível emitir a instrução: " + inst.toString());
                     ciclosBolha++;
                 }
             } else {
-                logExecucao.add("ROB cheio, não foi possível emitir a instrução: " + instrucoes.get(pc).toString());
+                logExecucao.add("ROB cheio, não foi possível emitir a instrução: " + inst.toString());
                 ciclosBolha++;
             }
         }
@@ -426,7 +567,7 @@ public class Simulador {
         for (int i = robHead; i != robTail; i = (i + 1) % TAMANHO_ROB) {
             if (rob.get(i).isBusy()) {
                 String regPublico = rob.get(i).getRegistradorPublico();
-                if (regPublico.equals(reg1)) {
+                if (reg1 != null && regPublico != null && regPublico.equals(reg1)) {
                     if (conflito1 != null) {
                         if (conflito1.getCicloIssue() < rob.get(i).getCicloIssue()) {
                             conflito1 = rob.get(i);
@@ -434,7 +575,7 @@ public class Simulador {
                     } else {
                         conflito1 = rob.get(i);
                     }
-                } else if (regPublico.equals(reg2)) {
+                } else if (reg2 != null && regPublico != null && regPublico.equals(reg2)) {
                     if (conflito2 != null) {
                         if (conflito2.getCicloIssue() < rob.get(i).getCicloIssue()) {
                             conflito2 = rob.get(i);
@@ -452,7 +593,7 @@ public class Simulador {
             } else {
                 estacao.setQj(conflito1.getRegistradorRenomeado());
             }
-        } else {
+        } else if (reg1 != null) {
             estacao.setVj(bancoRegistradores.get(reg1));
         }
         if (conflito2 != null) {
@@ -462,7 +603,7 @@ public class Simulador {
             } else {
                 estacao.setQk(conflito2.getRegistradorRenomeado());
             }
-        } else {
+        } else if (reg2 != null) {
             estacao.setVk(bancoRegistradores.get(reg2));
         }
     }
@@ -495,6 +636,7 @@ public class Simulador {
 
         return null;
     }
+
     /**
      * Encontra um registrador com base no seu nome e se é privado ou não.
      */
@@ -524,33 +666,24 @@ public class Simulador {
      * Fase de Commit: Retira instruções da cabeça do ROB
      */
     private void commit() {
-
         ReorderBufferSlot slot = rob.get(robHead);
-
         if (slot.isBusy() && slot.isPronto() && slot.getCicloCommit() != cicloAtual) {
             Instrucao inst = slot.getInstrucao();
             slot.setCicloCommit(cicloAtual);
-            System.out.println("INSTRUÇÃO ROB: " + slot.getInstrucao().toString());
-            // Atualiza banco publico se a instrução escreve em registrador
             if (inst.podeEscrever() && slot.getRegistradorPublico() != null) {
                 String regPub = slot.getRegistradorPublico();
-                // String regPrivAntigo = mapaRenomeacao.get(regPub);
                 String regPriv = slot.getRegistradorRenomeado();
-
-                // Atualiza o valor no banco publico
                 bancoRegistradores.put(regPub, slot.getResultado());
                 filaRegistradoresLivres.offer(regPriv);
                 mapaRenomeacao.remove(regPub);
-                logExecucao.add("Commit: " + inst + " -> " + regPub + " = " + slot.getResultado());
-            } else {
-                logExecucao.add("Commit: " + inst);
             }
-
             slot.limpar();
             robHead = (robHead + 1) % TAMANHO_ROB;
             instrucoesExecutadas++;
+            // Atualiza estado da instrução
+            if (inst != null)
+                inst.setEstado(4); // Commit
         }
-
     }
 
     /**
@@ -588,9 +721,15 @@ public class Simulador {
      */
     public void carregarInstrucoes(String nomeArquivo) throws IOException {
         reiniciar();
-        instrucoes = InstructionParser.lerInstrucoes(nomeArquivo);
+        List<Instrucao> lidas = InstructionParser.lerInstrucoes(nomeArquivo);
+        instrucoesInstancias = new ArrayList<>();
+        for (Instrucao inst : lidas) {
+            List<Instrucao> lista = new ArrayList<>();
+            lista.add(new Instrucao(inst)); // deep copy
+            instrucoesInstancias.add(lista);
+        }
         pc = 0;
-        logExecucao.add("Carregadas " + instrucoes.size() + " instruções do arquivo: " + nomeArquivo);
+        logExecucao.add("Carregadas " + instrucoesInstancias.size() + " instruções do arquivo: " + nomeArquivo);
     }
 
     /**
@@ -641,6 +780,10 @@ public class Simulador {
         return totalCiclos;
     }
 
+    public List<List<Instrucao>> getInstrucoesInstancias() {
+        return instrucoesInstancias;
+    }
+
     public int getCiclosBolha() {
         return ciclosBolha;
     }
@@ -662,6 +805,31 @@ public class Simulador {
     }
 
     public int getTotalInstrucoes() {
-        return instrucoes.size();
+        return instrucoesInstancias.size();
+    }
+
+    // Novo método para acessar a instância atual de uma instrução
+    private Instrucao getInstrucaoAtual(int idx) {
+        List<Instrucao> lista = instrucoesInstancias.get(idx);
+        return lista.get(lista.size() - 1);
+    }
+
+    // Novo método para verificar se todas as instruções estão finalizadas
+    private boolean todasInstrucoesFinalizadas() {
+        for (List<Instrucao> instancias : instrucoesInstancias) {
+            Instrucao atual = instancias.get(instancias.size() - 1);
+            if (atual.getEstado() != 4 && atual.getEstado() != -1) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Função para voltar um ciclo:
+    public void cicloAnterior() {
+        if (!historicoCiclos.isEmpty()) {
+            EstadoSimulador estadoAnterior = historicoCiclos.pop();
+            estadoAnterior.restaurar(this);
+        }
     }
 }

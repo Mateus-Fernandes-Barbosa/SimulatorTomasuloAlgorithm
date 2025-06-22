@@ -31,6 +31,21 @@ public class ReorderBufferSlot {
         this.cicloEscrita = -1;
         this.cicloCommit = -1;
     }
+
+    public ReorderBufferSlot(ReorderBufferSlot outro) {
+        this.busy = outro.busy;
+        this.instrucao = outro.instrucao;
+        this.estado = outro.estado;
+        this.registradorPublico = outro.registradorPublico;
+        this.registradorRenomeado = outro.registradorRenomeado;
+        this.resultado = outro.resultado;
+        this.pronto = outro.pronto;
+        this.indice = outro.indice;
+        this.cicloIssue = outro.cicloIssue;
+        this.cicloExecucao = outro.cicloExecucao;
+        this.cicloEscrita = outro.cicloEscrita;
+        this.cicloCommit = outro.cicloCommit;
+    }
     
     /**
      * Limpa o slot do ROB
