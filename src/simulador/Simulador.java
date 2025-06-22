@@ -186,7 +186,7 @@ public class Simulador {
     }
 
     public void proximoCiclo() {
-        System.out.println("Executando ciclo: " + cicloAtual);
+        //System.out.println("Executando ciclo: " + cicloAtual);
         if (!simulacaoCompleta) {
 
             writeResult();
@@ -210,7 +210,7 @@ public class Simulador {
     public void confereSituacaoROB() {
         for (int i = robHead; i != robTail; i = (i + 1) % TAMANHO_ROB) {
             ReorderBufferSlot slot = rob.get(i);
-            System.out.println("Slot " + i + ": " + slot.getInstrucao() + ", Busy: " + slot.isBusy());
+            //System.out.println("Slot " + i + ": " + slot.getInstrucao() + ", Busy: " + slot.isBusy());
         }
     }
 
@@ -252,7 +252,7 @@ public class Simulador {
                             resultado = valor; // Para STORE, o resultado é o valor armazenado
                         }
                     } else if (estacao.getOp().isBranch()) {
-                        System.out.println("Branch detected");
+                        //System.out.println("Branch detected");
                         if (resultado == 1) {
                             executarBEQ(slot);
                         }
@@ -511,30 +511,7 @@ public class Simulador {
 
         return null;
     }
-    /**
-     * Encontra um registrador com base no seu nome e se é privado ou não.
-     */
-    /*
-     * private String EncontraRegistrador(String nome, boolean privado) {
-     * String reg = null;
-     * if (privado) {
-     * for (String r : bancoPrivado) {
-     * if (r.getNome().equals(nome)) {
-     * reg = r;
-     * break;
-     * }
-     * }
-     * } else {
-     * for (Registrador r : bancoRegistradores) {
-     * if (r.getNome().equals(nome)) {
-     * reg = r;
-     * break;
-     * }
-     * }
-     * }
-     * return reg;
-     * }
-     */
+    
 
     /**
      * Fase de Commit: Retira instruções da cabeça do ROB
@@ -546,7 +523,7 @@ public class Simulador {
         if (slot.isBusy() && slot.isPronto() && slot.getCicloCommit() != cicloAtual) {
             Instrucao inst = slot.getInstrucao();
             slot.setCicloCommit(cicloAtual);
-            System.out.println("INSTRUÇÃO ROB: " + slot.getInstrucao().toString());
+            //System.out.println("INSTRUÇÃO ROB: " + slot.getInstrucao().toString());
             // Atualiza banco publico se a instrução escreve em registrador
             if (inst.podeEscrever() && slot.getRegistradorPublico() != null) {
                 String regPub = slot.getRegistradorPublico();
@@ -680,4 +657,5 @@ public class Simulador {
     public int getTotalInstrucoes() {
         return instrucoes.size();
     }
+
 }
