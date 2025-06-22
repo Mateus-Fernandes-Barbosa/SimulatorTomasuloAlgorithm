@@ -7,14 +7,16 @@ public class EstacaoDeReserva {
     private String nome;
     private boolean busy;
     private OpCode op;
-    private Float vj;  // Valor do operando j
-    private Float vk;  // Valor do operando k
-    private String qj;    // Nome do registrador privado que produzirá o operando j (-1 se não há dependência)
-    private String qk;    // Nome do registrador privado que produzirá o operando k (-1 se não há dependência)
-    private String dest;  // Nome do registrador privado de destino
+    private Float vj; // Valor do operando j
+    private Float vk; // Valor do operando k
+    private String qj; // Nome do registrador privado que produzirá o operando j (-1 se não há
+                       // dependência)
+    private String qk; // Nome do registrador privado que produzirá o operando k (-1 se não há
+                       // dependência)
+    private String dest; // Nome do registrador privado de destino
     private int imediato; // Valor imediato // Endereço de memória para LOAD/STORE
     private int ciclosRestantes; // Ciclos restantes para completar a operação
-    
+
     public EstacaoDeReserva(String nome) {
         this.nome = nome;
         this.busy = false;
@@ -27,7 +29,7 @@ public class EstacaoDeReserva {
         this.imediato = 0;
         this.ciclosRestantes = 0;
     }
-    
+
     /**
      * Limpa a estação de reserva
      */
@@ -42,27 +44,30 @@ public class EstacaoDeReserva {
         this.imediato = 0;
         this.ciclosRestantes = 0;
     }
-    
+
     /**
      * Verifica se a estação está pronta para execução
      */
     public boolean prontaParaExecucao() {
         boolean pronto = true;
-        if (!busy) pronto = false;
-        
-        // Para operações de memória, precisamos apenas do endereço base
-        if (op.isMemoryOperation()) {
-            pronto = qj == null; // Apenas vj precisa estar pronto
+        if (!busy) {
+            if (op.isMemoryOperation()) {
+                pronto = qj == null; // Apenas vj precisa estar pronto
+            } else {
+                // Para outras operações, verificamos se todos os operandos estão prontos
+                boolean vjPronto = (qj == null);
+                boolean vkPronto = (qk == null) || op.hasImmediate() || (op.isBranch() && vk != null);
+                pronto = vjPronto && vkPronto;
+            }
         }
         else{
-            // Para outras operações, verificamos se todos os operandos estão prontos
-            boolean vjPronto = (qj == null);
-            boolean vkPronto = (qk == null) || op.hasImmediate() || (op.isBranch() && vk != null);
-            pronto = vjPronto && vkPronto;
+            pronto = false;
         }
+
+        // Para operações de memória, precisamos apenas do endereço base
         return pronto;
     }
-    
+
     /**
      * Inicia a execução da operação
      */
@@ -108,20 +113,22 @@ public class EstacaoDeReserva {
             }
         }
     }
-    
+
     /**
      * Executa um ciclo da operação
+     * 
      * @return true se a operação foi completada
      */
     public boolean executarCiclo() {
         boolean terminou = false;
         if (ciclosRestantes > 0) {
             ciclosRestantes--;
-            if(ciclosRestantes == 0) terminou = true;
+            if (ciclosRestantes == 0)
+                terminou = true;
         }
         return terminou;
     }
-    
+
     /**
      * Calcula o resultado da operação
      */
@@ -129,7 +136,7 @@ public class EstacaoDeReserva {
         if (op == null || !prontaParaExecucao()) {
             return null;
         }
-        
+
         switch (op) {
             case ADD:
                 return vj + (vk != null ? vk : 0);
@@ -163,84 +170,84 @@ public class EstacaoDeReserva {
                 return 0.0f;
         }
     }
-    
+
     // Getters e Setters
     public String getNome() {
         return nome;
     }
-    
+
     public void setNome(String nome) {
         this.nome = nome;
     }
-    
+
     public boolean isBusy() {
         return busy;
     }
-    
+
     public void setBusy(boolean busy) {
         this.busy = busy;
     }
-    
+
     public OpCode getOp() {
         return op;
     }
-    
+
     public void setOp(OpCode op) {
         this.op = op;
     }
-    
+
     public Float getVj() {
         return vj;
     }
-    
+
     public void setVj(Float vj) {
         this.vj = vj;
     }
-    
+
     public Float getVk() {
         return vk;
     }
-    
+
     public void setVk(Float vk) {
         this.vk = vk;
     }
-    
+
     public String getQj() {
         return qj;
     }
-    
+
     public void setQj(String qj) {
         this.qj = qj;
     }
-    
+
     public String getQk() {
         return qk;
     }
-    
+
     public void setQk(String qk) {
         this.qk = qk;
     }
-    
+
     public String getDest() {
         return dest;
     }
-    
+
     public void setDest(String dest) {
         this.dest = dest;
     }
-    
+
     public int getImediato() {
         return imediato;
     }
-    
+
     public void setImediato(int imediato) {
         this.imediato = imediato;
     }
-    
+
     public int getCiclosRestantes() {
         return ciclosRestantes;
     }
-    
+
     public void setCiclosRestantes(int ciclosRestantes) {
         this.ciclosRestantes = ciclosRestantes;
     }

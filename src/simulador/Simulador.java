@@ -401,7 +401,7 @@ public class Simulador {
                         estacao.setOp(inst.getOp());
                         estacao.setCiclosRestantes(inst.getCiclosDuracao());
                         robTail = (robTail + 1) % TAMANHO_ROB;
-                    } else {
+                    } else if (!filaRegistradoresLivres.isEmpty()) {
                         ReorderBufferSlot slot = rob.get(robTail);
                         slot.setBusy(true);
                         slot.setInstrucao(inst);
