@@ -387,9 +387,9 @@ public class SimuladorMain extends JFrame {
                 estacao.getOp() != null ? estacao.getOp().getNome() : "-",
                 estacao.getVj() != null ? String.format("%.2f", estacao.getVj()) : "-",
                 estacao.getVk() != null ? String.format("%.2f", estacao.getVk()) : "-",
-                estacao.getQj() != -1 ? "ROB" + estacao.getQj() : "-",
-                estacao.getQk() != -1 ? "ROB" + estacao.getQk() : "-",
-                estacao.getDest() != -1 ? "ROB" + estacao.getDest() : "-"
+                estacao.getQj() != null ? estacao.getQj() : "-",
+                estacao.getQk() != null ? estacao.getQk() : "-",
+                estacao.getDest() != null ? estacao.getDest() : "-"
             };
             modeloEstacoes.addRow(linha);
         }

@@ -1,114 +1,117 @@
 package simulador;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
 
-/**
- * Classe principal do simulador do algoritmo de Tomasulo
- */
 public class Simulador {
     // Configurações do simulador
     private static final int TAMANHO_ROB = 8;
     private static final int NUM_ESTACOES_ADD = 3;
-    private static final int NUM_ESTACOES_MUL = 2;
-    private static final int NUM_ESTACOES_LOAD = 2;
+    private static final int NUM_ESTACOES_MUL = 3;
+    private static final int NUM_ESTACOES_LOAD = 3;
+    private static final int NUM_ESTACOES_BRANCHES = 3;
     private static final int NUM_REGISTRADORES_PRIVADOS = 32;
     private static final int NUM_REGISTRADORES_PUBLICOS = 16;
-    
+
     // Estruturas de dados principais
-    private Map<String, Float> bancoRegistradores;     // R1 -> valor
-    private Map<String, Float> bancoPrivado;           // P1 -> valor
-    private Map<String, String> mapaRenomeacao;       // R1 -> P5
-    private Queue<String> filaRegistradoresLivres;    // Registradores privados livres
-    
-    private List<ReorderBufferSlot> rob;              // Buffer de Reordenamento
-    private int robHead;                              // Cabeça do ROB (próximo a fazer commit)
-    private int robTail;                              // Cauda do ROB (próximo slot livre)
-    
-    private List<EstacaoDeReserva> estacoesAdd;       // Estações para ADD/SUB
-    private List<EstacaoDeReserva> estacoesMul;       // Estações para MUL/DIV
-    private List<EstacaoDeReserva> estacoesLoad;      // Estações para LOAD/STORE
-    
-    private Map<Integer, Float> memoria;              // Memória principal
-    
+    private Map<String, Float> bancoRegistradores; // R1 -> valor
+    private Map<String, Float> bancoPrivado; // P1 -> valor
+    private Map<String, String> mapaRenomeacao; // R1 -> P5
+    private Queue<String> filaRegistradoresLivres; // Registradores privados livres
+
+    private List<ReorderBufferSlot> rob; // Buffer de Reordenamento
+    private int robHead; // Cabeça do ROB (próximo a fazer commit)
+    private int robTail; // Cauda do ROB (próximo slot livre)
+
+    private List<EstacaoDeReserva> estacoesAdd; // Estações para ADD/SUB
+    private List<EstacaoDeReserva> estacoesMul; // Estações para MUL/DIV
+    private List<EstacaoDeReserva> estacoesLoad; // Estações para LOAD/STORE
+    private List<EstacaoDeReserva> estacoesBranches; // Estações para branches
+
+    private Map<Integer, Float> memoria;
+
     // Estado do simulador
     private List<Instrucao> instrucoes;
-    private int pc;                                   // Program Counter
+    private int pc; // Program Counter
     private int cicloAtual;
     private int totalCiclos;
     private int ciclosBolha;
     private boolean simulacaoCompleta;
-    
+
     // Estatísticas
     private int instrucoesExecutadas;
     private List<String> logExecucao;
-    
+
     /**
      * Construtor do simulador
      */
     public Simulador() {
         inicializarSimulador();
     }
-    
-    /**
-     * Inicializa todas as estruturas do simulador
+
+    /*
+     * Método de inicialização do simulador
+     * Configura os registradores, buffer de reordenamento, estações de reserva e
+     * memória.
      */
     private void inicializarSimulador() {
-        // Inicializa bancos de registradores
+        // Inicializando Banco de Registradores
         bancoRegistradores = new HashMap<>();
+        for (int i = 0; i <= NUM_REGISTRADORES_PUBLICOS; i++) {
+            bancoRegistradores.put("R" + i, (float) i);
+        }
+
+        // Inicializando Banco de Registradores privados
         bancoPrivado = new HashMap<>();
-        mapaRenomeacao = new HashMap<>();
         filaRegistradoresLivres = new LinkedList<>();
-        
-        // Inicializa registradores arquiteturais
-        for (int i = 0; i < NUM_REGISTRADORES_PUBLICOS; i++) {
-            String regPub = "R" + i;
-            String regFis = "P" + i;
-            bancoRegistradores.put(regPub, (float) i); //Inicializa com valores simples
-            bancoPrivado.put(regFis, (float) 0.0);
-            filaRegistradoresLivres.offer(regFis);
-            mapaRenomeacao.put(regPub, regFis);
+        for (int i = 0; i <= NUM_REGISTRADORES_PRIVADOS; i++) {
+            bancoPrivado.put("P" + i, (float) i);
+            filaRegistradoresLivres.offer("P" + i);
         }
-        
-        // Adiciona registradores privados livres
-        for (int i = NUM_REGISTRADORES_PUBLICOS; i < NUM_REGISTRADORES_PRIVADOS; i++) {
-        //for (int i = 0; i < NUM_REGISTRADORES_PRIVADOS; i++) {
-            String regFis = "P" + i;
-            bancoPrivado.put(regFis, (float) 0.0);
-            filaRegistradoresLivres.offer(regFis);
-        }
-        
-        // Inicializa ROB
+
+        mapaRenomeacao = new HashMap<>();
+
+        // Inicializando Buffer de Reordenamento
         rob = new ArrayList<>();
         for (int i = 0; i < TAMANHO_ROB; i++) {
             rob.add(new ReorderBufferSlot(i));
         }
         robHead = 0;
         robTail = 0;
-        
-        // Inicializa estações de reserva
+
+        // Inicializando Estações de Reserva
         estacoesAdd = new ArrayList<>();
         for (int i = 0; i < NUM_ESTACOES_ADD; i++) {
             estacoesAdd.add(new EstacaoDeReserva("Add" + (i + 1)));
         }
-        
+
         estacoesMul = new ArrayList<>();
         for (int i = 0; i < NUM_ESTACOES_MUL; i++) {
             estacoesMul.add(new EstacaoDeReserva("Mult" + (i + 1)));
         }
-        
+
         estacoesLoad = new ArrayList<>();
         for (int i = 0; i < NUM_ESTACOES_LOAD; i++) {
             estacoesLoad.add(new EstacaoDeReserva("Load" + (i + 1)));
         }
-        
-        // Inicializa memória
-        memoria = new HashMap<>();
-        for (int i = 0; i < 1000; i += 4) {
-            memoria.put(i, (float) i); // Inicializa memória com valores simples
+
+        estacoesBranches = new ArrayList<>();
+        for (int i = 0; i < NUM_ESTACOES_BRANCHES; i++) {
+            estacoesBranches.add(new EstacaoDeReserva("Branch" + (i + 1)));
         }
-        
-        // Inicializa estado
+
+        // Iniciando memória
+        memoria = new HashMap<>();
+        for (int i = 0; i < 1024; i++) {
+            memoria.put(i, (float) i); // Inicializando memória com zeros
+        }
+
+        // Inicializando estado do simulador
         instrucoes = new ArrayList<>();
         pc = 0;
         cicloAtual = 0;
@@ -118,353 +121,460 @@ public class Simulador {
         instrucoesExecutadas = 0;
         logExecucao = new ArrayList<>();
     }
-    
-    /**
-     * Carrega instruções de um arquivo
-     */
-    public void carregarInstrucoes(String nomeArquivo) throws IOException {
-        instrucoes = InstructionParser.lerInstrucoes(nomeArquivo);
+
+    public void reiniciar() {
+
+        // Inicializando Banco de Registradores
+        bancoRegistradores = new HashMap<>();
+        for (int i = 0; i <= NUM_REGISTRADORES_PUBLICOS; i++) {
+            bancoRegistradores.put("R" + i, (float) i);
+        }
+
+        // Inicializando Banco de Registradores privados
+        bancoPrivado = new HashMap<>();
+        filaRegistradoresLivres = new LinkedList<>();
+        for (int i = 0; i <= NUM_REGISTRADORES_PRIVADOS; i++) {
+            bancoPrivado.put("P" + i, (float) i);
+            filaRegistradoresLivres.offer("P" + i);
+        }
+
+        mapaRenomeacao = new HashMap<>();
+
+        // Inicializando Buffer de Reordenamento
+        rob = new ArrayList<>(TAMANHO_ROB);
+        for (int i = 0; i < TAMANHO_ROB; i++) {
+            rob.add(new ReorderBufferSlot(i));
+        }
+        robHead = 0;
+        robTail = 0;
+
+        // Inicializando Estações de Reserva
+        estacoesAdd = new ArrayList<>();
+        for (int i = 0; i < NUM_ESTACOES_ADD; i++) {
+            estacoesAdd.add(new EstacaoDeReserva("Add" + (i + 1)));
+        }
+
+        estacoesMul = new ArrayList<>();
+        for (int i = 0; i < NUM_ESTACOES_MUL; i++) {
+            estacoesMul.add(new EstacaoDeReserva("Mult" + (i + 1)));
+        }
+
+        estacoesLoad = new ArrayList<>();
+        for (int i = 0; i < NUM_ESTACOES_LOAD; i++) {
+            estacoesLoad.add(new EstacaoDeReserva("Load" + (i + 1)));
+        }
+
+        estacoesBranches = new ArrayList<>();
+        for (int i = 0; i < NUM_ESTACOES_BRANCHES; i++) {
+            estacoesBranches.add(new EstacaoDeReserva("Branch" + (i + 1)));
+        }
+
+        // Iniciando memória
+        memoria = new HashMap<>();
+        for (int i = 0; i < 1024; i++) {
+            memoria.put(i, (float) i); // Inicializando memória com zeros
+        }
+
+        // Inicializando estado do simulador
         pc = 0;
-        logExecucao.add("Carregadas " + instrucoes.size() + " instruções do arquivo: " + nomeArquivo);
+        cicloAtual = 0;
+        totalCiclos = 0;
+        ciclosBolha = 0;
+        simulacaoCompleta = false;
+        instrucoesExecutadas = 0;
+        logExecucao = new ArrayList<>();
     }
-    
-    /**
-     * Executa um ciclo completo do simulador
-     */
+
     public void proximoCiclo() {
-        if (simulacaoCompleta) return;
-        
-        cicloAtual++;
-        boolean progresso = false;
-        
-        logExecucao.add("=== Ciclo " + cicloAtual + " ===");
-        
-        // Fase 1: Commit (em ordem)
-        progresso |= commit();
-        
-        // Fase 2: Write Result (através do CDB)
-        progresso |= writeResult();
-        
-        // Fase 3: Execute
-        progresso |= execute();
-        
-        // Fase 4: Issue (emissão)
-        progresso |= issue();
-        
-        // Verifica se a simulação está completa
-        if (!progresso && pc >= instrucoes.size() && robVazio()) {
-            simulacaoCompleta = true;
-            totalCiclos = cicloAtual;
-            logExecucao.add("Simulação completa em " + totalCiclos + " ciclos");
-        }
-        
-        // Conta ciclos de bolha
-        if (!progresso) {
-            ciclosBolha++;
-        }
-    }
-    
-    /**
-     * Fase de Commit: Retira instruções da cabeça do ROB
-     */
-    private boolean commit() {
-        boolean progresso = false;
-        ReorderBufferSlot slot = rob.get(robHead);
-        
-        if (slot.isBusy() && slot.prontoParaCommit()) {
-            Instrucao inst = slot.getInstrucao();
-            
-            // Atualiza banco publico se a instrução escreve em registrador
-            if (inst.escreveRegistrador() && slot.getRegistradorPublico() != null) {
-                String regPub = slot.getRegistradorPublico();
-                //String regPrivAntigo = mapaRenomeacao.get(regPub);
-                String regPriv = slot.getRegistradorRenomeado();
-                
-                // Atualiza o valor no banco publico
-                bancoRegistradores.put(regPub, slot.getResultado());
-                filaRegistradoresLivres.offer(regPriv);
-                
-                
-                logExecucao.add("Commit: " + inst + " -> " + regPub + " = " + slot.getResultado());
-            } else {
-                logExecucao.add("Commit: " + inst);
+        if (!simulacaoCompleta) {
+
+            writeResult();
+
+            execute();
+
+            issue();
+
+            commit();
+
+            if (pc == instrucoes.size() && robVazio()) {
+                simulacaoCompleta = true;
+                logExecucao.add("Simulação completa. Total de ciclos gastos: " + totalCiclos);
+                totalCiclos = cicloAtual - 1;
             }
-            
-            slot.commit(cicloAtual);
-            slot.limpar();
-            robHead = (robHead + 1) % TAMANHO_ROB;
-            instrucoesExecutadas++;
-            progresso = true;
+            cicloAtual++;
         }
-        
-        return progresso;
     }
-    
-    /**
-     * Fase de Write Result: Propaga resultados via CDB
-     */
-    private boolean writeResult() {
-        boolean progresso = false;
-        
+
+    void writeResult() {
         // Verifica estações de reserva que terminaram a execução
         List<EstacaoDeReserva> todasEstacoes = new ArrayList<>();
         todasEstacoes.addAll(estacoesAdd);
         todasEstacoes.addAll(estacoesMul);
         todasEstacoes.addAll(estacoesLoad);
-        
+        todasEstacoes.addAll(estacoesBranches);
+
         for (EstacaoDeReserva estacao : todasEstacoes) {
+            // System.out.println(
+            // "Ciclos restantes para a estação " + estacao.getNome() + ": " +
+            // estacao.getCiclosRestantes());
             if (estacao.isBusy() && estacao.getCiclosRestantes() == 0) {
-                // Calcula resultado
-                Float resultado = estacao.calcularResultado();
-                int destROB = estacao.getDest();
-                
+                String regPrivado = estacao.getDest();
+
                 // Atualiza o slot do ROB
-                ReorderBufferSlot slot = rob.get(destROB);
-                if (estacao.getOp().isMemoryOperation()) {
-                    // Para LOAD, lê da memória
-                    if (estacao.getOp() == OpCode.LOAD) {
-                        int endereco = resultado.intValue();
-                        resultado = memoria.getOrDefault(endereco, 0.0f);
-                    } else { // STORE
-                        int endereco = resultado.intValue();
-                        Float valor = bancoPrivado.get(slot.getRegistradorRenomeado());
-                        memoria.put(endereco, valor);
-                        resultado = valor; // Para STORE, o resultado é o valor armazenado
+                ReorderBufferSlot slot = encontrarSlotROB(regPrivado);
+                if (slot.getCicloEscrita() != cicloAtual) {
+                    Float resultado = estacao.calcularResultado();
+                    slot.setCicloEscrita(cicloAtual);
+                    slot.setCicloCommit(cicloAtual);
+                    slot.setEstado(EstadoInstrucao.ESCRITA);
+                    slot.setPronto(true);
+                    if (estacao.getOp().isMemoryOperation()) {
+                        // Para LOAD, lê da memória
+                        if (estacao.getOp() == OpCode.LOAD) {
+                            int endereco = resultado.intValue();
+                            resultado = memoria.getOrDefault(endereco, 0.0f);
+
+                            // Propaga resultado via CDB para estações de reserva que estavam esperando
+                            propagarResultadoCDB(regPrivado, resultado);
+                        } else { // STORE
+                            int endereco = resultado.intValue();
+                            Float valor = bancoPrivado.get(regPrivado);
+                            memoria.put(endereco, valor);
+                            resultado = valor; // Para STORE, o resultado é o valor armazenado
+                        }
+                    } else if (estacao.getOp().isBranch()) {
+                        System.out.println("Branch detected");
+                        if (resultado == 1) {
+                            int quantidadeDescartes = pc < (estacao.getImediato() - 1)
+                                    ? estacao.getImediato() - pc - 1
+                                    : slot.getInstrucao().getCiclosDuracao();
+
+                            pc = estacao.getImediato() - 1; // Atualiza PC se for branch
+                            logExecucao.add("Branch taken: " + slot.getInstrucao().toString() + " -> PC = " + pc);
+                            int posRob = ((rob.indexOf(slot) + 1) % TAMANHO_ROB);
+                            for (int i = 0; i < quantidadeDescartes; i++) {
+                                if (rob.get(i).isBusy()) {
+                                    System.out.println(rob.get(i).getRegistradorPublico());
+                                    rob.get(posRob).setEstado(EstadoInstrucao.CANCELADA);
+                                    rob.get(posRob).limpar();
+                                }
+                            }
+                        }
+                    } else {
+                        // Propaga resultado via CDB para estações de reserva que estavam esperando
+                        propagarResultadoCDB(regPrivado, resultado);
                     }
+
+                    slot.marcarResultadoPronto(resultado, cicloAtual);
+                    logExecucao.add("Write Result: " + estacao.getNome() + " -> ROB" + regPrivado + " = " + resultado);
+                    estacao.limpar();
                 }
-                
-                slot.marcarResultadoPronto(resultado, cicloAtual);
-                
-                // Propaga resultado via CDB para estações de reserva que estavam esperando
-                propagarResultadoCDB(destROB, resultado);
-                
-                logExecucao.add("Write Result: " + estacao.getNome() + " -> ROB" + destROB + " = " + resultado);
-                
-                estacao.limpar();
-                progresso = true;
+
             }
         }
-        
-        return progresso;
     }
-    
+
+    /*
+     * Função que encontra um slot do ROB baseado no registrador renomeado.
+     * Se o registrador renomeado for encontrado, retorna o slot correspondente.
+     * Caso contrário, retorna null.
+     */
+    ReorderBufferSlot encontrarSlotROB(String regPrivado) {
+        ReorderBufferSlot slotEncontrado = null;
+        for (ReorderBufferSlot slot : rob) {
+            if (slot.isBusy() && slot.getRegistradorRenomeado().equals(regPrivado)) {
+                slotEncontrado = slot;
+            }
+        }
+        return slotEncontrado;
+    }
+
     /**
      * Propaga resultado via Common Data Bus (CDB)
      */
-    private void propagarResultadoCDB(int robIndex, Float valor) {
+    private void propagarResultadoCDB(String regPrivado, Float valor) {
         // Atualiza estações de reserva que estavam esperando este resultado
         List<EstacaoDeReserva> todasEstacoes = new ArrayList<>();
         todasEstacoes.addAll(estacoesAdd);
         todasEstacoes.addAll(estacoesMul);
         todasEstacoes.addAll(estacoesLoad);
-        
+        todasEstacoes.addAll(estacoesBranches);
+
         for (EstacaoDeReserva estacao : todasEstacoes) {
             if (estacao.isBusy()) {
-                if (estacao.getQj() == robIndex) {
+                if (estacao.getQj() != null && estacao.getQj().equals(regPrivado)) {
                     estacao.setVj(valor);
-                    estacao.setQj(-1);
+                    estacao.setQj(null);
                 }
-                if (estacao.getQk() == robIndex) {
+                if (estacao.getQk() != null && estacao.getQk().equals(regPrivado)) {
                     estacao.setVk(valor);
-                    estacao.setQk(-1);
+                    estacao.setQk(null);
                 }
             }
         }
     }
-    
+
     /**
      * Fase de Execução: Inicia execução de operações prontas
      */
-    private boolean execute() {
-        boolean progresso = false;
-        
+    private void execute() {
+
         List<EstacaoDeReserva> todasEstacoes = new ArrayList<>();
         todasEstacoes.addAll(estacoesAdd);
         todasEstacoes.addAll(estacoesMul);
         todasEstacoes.addAll(estacoesLoad);
-        
+        todasEstacoes.addAll(estacoesBranches);
+
         for (EstacaoDeReserva estacao : todasEstacoes) {
             if (estacao.isBusy()) {
-                if (estacao.getCiclosRestantes() > 0) {
-                    // Continua execução
+                boolean pronta = estacao.prontaParaExecucao();
+                if (estacao.getCiclosRestantes() > 0 && pronta) {
+                    ReorderBufferSlot slot = encontrarSlotROB(estacao.getDest());
+                    slot.setEstado(EstadoInstrucao.EXECUTANDO);
+                    if (slot.getCicloExecucao() == -1)
+                        slot.setCicloExecucao(cicloAtual);
                     boolean terminou = estacao.executarCiclo();
                     if (terminou) {
+                        slot.setCicloEscrita(cicloAtual);
                         logExecucao.add("Execute: " + estacao.getNome() + " completou execução");
                     }
-                    progresso = true;
-                } else if (estacao.prontaParaExecucao() && estacao.getCiclosRestantes() == 0) {
-                    // Inicia execução
-                    estacao.iniciarExecucao();
-                    ReorderBufferSlot slot = rob.get(estacao.getDest());
-                    slot.setCicloExecucao(cicloAtual);
-                    logExecucao.add("Execute: " + estacao.getNome() + " iniciou execução");
-                    progresso = true;
+                }
+                if (!pronta)
+                    ciclosBolha++;
+            }
+        }
+
+    }
+
+    private void issue() {
+        if (pc < instrucoes.size()) {
+            if (!rob.get(robTail).isBusy()) {
+                Instrucao inst = instrucoes.get(pc);
+                EstacaoDeReserva estacao = encontrarEstacaoLivre(inst.getOp());
+                if (estacao != null) {
+                    if (inst.podeEscrever() && !filaRegistradoresLivres.isEmpty()) {
+                        ReorderBufferSlot slot = rob.get(robTail);
+                        slot.setBusy(true);
+                        slot.setPronto(false);
+                        slot.setInstrucao(inst);
+                        slot.setEstado(EstadoInstrucao.PROCESSANDO);
+                        slot.setCicloIssue(cicloAtual);
+                        String reg1 = inst.getReg1();
+                        String reg2 = inst.getReg2();
+                        String regPublico = inst.getRd();
+                        verificaDependenciaVDD(reg1, reg2, estacao);
+                        String regPrivado = filaRegistradoresLivres.poll();
+                        bancoPrivado.put(regPrivado, bancoRegistradores.get(regPublico));
+                        slot.setRegistradorRenomeado(regPrivado);
+                        slot.setRegistradorPublico(regPublico);
+                        estacao.setDest(regPrivado);
+                        mapaRenomeacao.put(inst.getRd(), regPrivado);
+                        int imediato = inst.getImediato();
+                        if (imediato != 0) {
+                            estacao.setImediato(imediato);
+                        }
+                        estacao.setBusy(true);
+                        estacao.setOp(inst.getOp());
+                        estacao.setCiclosRestantes(inst.getCiclosDuracao());
+                        // System.out.println("INSTRUÇÃO DO ROB: " + slot.getInstrucao().toString());
+                        robTail = (robTail + 1) % TAMANHO_ROB;
+                    } else {
+                        ReorderBufferSlot slot = rob.get(robTail);
+                        slot.setBusy(true);
+                        slot.setInstrucao(inst);
+                        slot.setPronto(false);
+                        slot.setEstado(EstadoInstrucao.PROCESSANDO);
+                        slot.setCicloIssue(cicloAtual);
+                        String reg1 = inst.getReg1();
+                        String reg2 = inst.getReg2();
+                        verificaDependenciaVDD(reg1, reg2, estacao);
+                        int imediato = inst.getImediato();
+                        if (imediato != 0) {
+                            estacao.setImediato(imediato);
+                        }
+                        String regPrivado = filaRegistradoresLivres.poll();
+                        estacao.setDest(regPrivado);
+                        slot.setRegistradorRenomeado(regPrivado);
+                        estacao.setBusy(true);
+                        estacao.setOp(inst.getOp());
+                        estacao.setCiclosRestantes(inst.getCiclosDuracao());
+                        System.out.println("INSTRUÇÃO DO ROB: " + slot.getInstrucao().toString());
+                        robTail = (robTail + 1) % TAMANHO_ROB;
+                    }
+                    pc++;
+                } else {
+                    logExecucao.add("Nenhuma estação de reserva disponível, não foi possível emitir a instrução: "
+                            + inst.toString());
+                    ciclosBolha++;
+                }
+            } else {
+                logExecucao.add("ROB cheio, não foi possível emitir a instrução: " + instrucoes.get(pc).toString());
+                ciclosBolha++;
+            }
+        }
+    }
+
+    /*
+     * @brief Essa função verifica se há dependências de dados entre a instrução
+     * atual e alguma instrução ROB
+     * e devolve a posição no ROB em que há esse conflito.
+     */
+    private void verificaDependenciaVDD(String reg1, String reg2, EstacaoDeReserva estacao) {
+        System.out.println("Verificando dependência VDD para: " + reg1 + ", " + reg2);
+        // Verifica se a instrução depende de outra que ainda não foi completada
+        ReorderBufferSlot conflito1 = null, conflito2 = null;
+        for (int i = robHead; i != robTail; i = (i + 1) % TAMANHO_ROB) {
+            if (rob.get(i).isBusy()) {
+                String regPublico = rob.get(i).getRegistradorPublico();
+                if (regPublico.equals(reg1)) {
+                    if (conflito1 != null) {
+                        if (conflito1.getCicloIssue() < rob.get(i).getCicloIssue()) {
+                            conflito1 = rob.get(i);
+                        }
+                    } else {
+                        conflito1 = rob.get(i);
+                    }
+                } else if (regPublico.equals(reg2)) {
+                    if (conflito2 != null) {
+                        if (conflito2.getCicloIssue() < rob.get(i).getCicloIssue()) {
+                            conflito2 = rob.get(i);
+                        }
+                    } else {
+                        conflito2 = rob.get(i);
+                    }
                 }
             }
         }
-        
-        return progresso;
+        if (conflito1 != null) {
+            logExecucao.add("Conflito VDD encontrado: " + reg1 + " em " + conflito1.getInstrucao().toString());
+            if (conflito1.isPronto()) {
+                estacao.setVj(bancoPrivado.get(conflito1.getRegistradorRenomeado()));
+            } else {
+                estacao.setQj(conflito1.getRegistradorRenomeado());
+            }
+        } else {
+            estacao.setVj(bancoRegistradores.get(reg1));
+        }
+        if (conflito2 != null) {
+            logExecucao.add("Conflito VDD encontrado: " + reg2 + " em " + conflito2.getInstrucao().toString());
+            if (conflito2.isPronto()) {
+                estacao.setVk(bancoPrivado.get(conflito2.getRegistradorRenomeado()));
+            } else {
+                estacao.setQk(conflito2.getRegistradorRenomeado());
+            }
+        } else {
+            estacao.setVk(bancoRegistradores.get(reg2));
+        }
     }
-    
-    /**
-     * Fase de Issue: Emite próxima instrução
-     */
-    private boolean issue() {
-        if (pc >= instrucoes.size()) return false;
-        
-        // Verifica se há slot livre no ROB
-        if (rob.get(robTail).isBusy()) {
-            return false; // ROB cheio
-        }
-        
-        Instrucao inst = instrucoes.get(pc);
-        
-        // Encontra estação de reserva livre
-        EstacaoDeReserva estacaoLivre = encontrarEstacaoLivre(inst.getOp());
-        if (estacaoLivre == null) {
-            return false; // Não há estação livre
-        }
-        
-        // Verifica se há registrador privado livre (se necessário)
-        if (inst.escreveRegistrador() && filaRegistradoresLivres.isEmpty()) {
-            return false; // Não há registrador privado livre
-        }
-        
-        // Aloca slot no ROB
-        ReorderBufferSlot robSlot = rob.get(robTail);
-        robSlot.setBusy(true);
-        robSlot.setInstrucao(inst);
-        robSlot.setEstado(EstadoInstrucao.PROCESSANDO);
-        robSlot.setCicloIssue(cicloAtual);
-        
-        // Renomeação de registradores
-        String novoRegFisico = null;
-        if (inst.escreveRegistrador()) {
-            novoRegFisico = filaRegistradoresLivres.poll();
-            robSlot.setRegistradorPublico(inst.getRd());
-            robSlot.setRegistradorRenomeado(novoRegFisico);
-            mapaRenomeacao.put(inst.getRd(), novoRegFisico);
-        }
-        
-        // Configura estação de reserva
-        configurarEstacaoReserva(estacaoLivre, inst, robTail);
-        
-        logExecucao.add("Issue: " + inst + " -> ROB" + robTail + 
-                       (novoRegFisico != null ? " (" + inst.getRd() + " -> " + novoRegFisico + ")" : ""));
-        
-        robTail = (robTail + 1) % TAMANHO_ROB;
-        pc++;
-        
-        return true;
-    }
-    
+
     /**
      * Encontra uma estação de reserva livre para a operação
      */
     private EstacaoDeReserva encontrarEstacaoLivre(OpCode op) {
         List<EstacaoDeReserva> estacoes;
-        
+
+        // System.out.println("Encontrando estação livre para a operação: " + op);
+
         if (op.isMemoryOperation()) {
             estacoes = estacoesLoad;
         } else if (op.isMultiplyDivide()) {
             estacoes = estacoesMul;
+        } else if (op.isBranch()) {
+            estacoes = estacoesBranches;
         } else {
             estacoes = estacoesAdd;
         }
-        
+
         for (EstacaoDeReserva estacao : estacoes) {
+            // System.out.println("Verificando estação: " + estacao.getNome() + " - Busy: "
+            // + estacao.isBusy());
             if (!estacao.isBusy()) {
                 return estacao;
             }
         }
-        
+
         return null;
     }
-    
     /**
-     * Configura uma estação de reserva com uma instrução
+     * Encontra um registrador com base no seu nome e se é privado ou não.
      */
-    private void configurarEstacaoReserva(EstacaoDeReserva estacao, Instrucao inst, int robIndex) {
-        estacao.setBusy(true);
-        estacao.setOp(inst.getOp());
-        estacao.setDest(robIndex);
-        estacao.setImediato(inst.getImediato());
-        
-        // Configura operando fonte 1 (rs)
-        if (inst.getRs() != null) {
-            String regFisicoRs = mapaRenomeacao.get(inst.getRs());
-            Float valorRs = bancoPrivado.get(regFisicoRs);
-            
-            // Verifica se há dependência
-            int robProdutorRs = encontrarProdutorROB(regFisicoRs);
-            if (robProdutorRs != -1 && !rob.get(robProdutorRs).isPronto()) {
-                estacao.setQj(robProdutorRs);
-                estacao.setVj(null);
-            } else {
-                estacao.setQj(-1);
-                estacao.setVj(valorRs);
-            }
-            
-            // Para operações de memória, calcula endereço
-            if (inst.getOp().isMemoryOperation()) {
-                estacao.setEndereco(valorRs != null ? valorRs.intValue() : 0);
-            }
-        }
-        
-        // Configura operando fonte 2 (rt)
-        if (inst.getRt() != null && !inst.getOp().hasImmediate()) {
-            String regFisicoRt = mapaRenomeacao.get(inst.getRt());
-            Float valorRt = bancoPrivado.get(regFisicoRt);
-            
-            // Verifica se há dependência
-            int robProdutorRt = encontrarProdutorROB(regFisicoRt);
-            if (robProdutorRt != -1 && !rob.get(robProdutorRt).isPronto()) {
-                estacao.setQk(robProdutorRt);
-                estacao.setVk(null);
-            } else {
-                estacao.setQk(-1);
-                estacao.setVk(valorRt);
-            }
-        } else if (inst.getOp().hasImmediate()) {
-            estacao.setQk(-1);
-            estacao.setVk((float) inst.getImediato());
-        }
-    }
-    
+    /*
+     * private String EncontraRegistrador(String nome, boolean privado) {
+     * String reg = null;
+     * if (privado) {
+     * for (String r : bancoPrivado) {
+     * if (r.getNome().equals(nome)) {
+     * reg = r;
+     * break;
+     * }
+     * }
+     * } else {
+     * for (Registrador r : bancoRegistradores) {
+     * if (r.getNome().equals(nome)) {
+     * reg = r;
+     * break;
+     * }
+     * }
+     * }
+     * return reg;
+     * }
+     */
+
     /**
-     * Encontra o slot do ROB que produzirá o valor para um registrador privado
+     * Fase de Commit: Retira instruções da cabeça do ROB
      */
-    private int encontrarProdutorROB(String regFisico) {
-        // Procura no ROB um slot ocupado que ainda não terminou e que escreve neste registrador
-        for (int i = 0; i < TAMANHO_ROB; i++) {
-            ReorderBufferSlot slot = rob.get(i);
-            if (slot.isBusy() && !slot.isPronto() && 
-                regFisico.equals(slot.getRegistradorRenomeado())) {
-                return i;
+    private void commit() {
+
+        ReorderBufferSlot slot = rob.get(robHead);
+
+        if (slot.isBusy() && slot.isPronto() && slot.getCicloCommit() != cicloAtual) {
+            Instrucao inst = slot.getInstrucao();
+            slot.setCicloCommit(cicloAtual);
+            System.out.println("INSTRUÇÃO ROB: " + slot.getInstrucao().toString());
+            // Atualiza banco publico se a instrução escreve em registrador
+            if (inst.podeEscrever() && slot.getRegistradorPublico() != null) {
+                String regPub = slot.getRegistradorPublico();
+                // String regPrivAntigo = mapaRenomeacao.get(regPub);
+                String regPriv = slot.getRegistradorRenomeado();
+
+                // Atualiza o valor no banco publico
+                bancoRegistradores.put(regPub, slot.getResultado());
+                filaRegistradoresLivres.offer(regPriv);
+                mapaRenomeacao.remove(regPub);
+                logExecucao.add("Commit: " + inst + " -> " + regPub + " = " + slot.getResultado());
+            } else {
+                logExecucao.add("Commit: " + inst);
             }
+
+            slot.limpar();
+            robHead = (robHead + 1) % TAMANHO_ROB;
+            instrucoesExecutadas++;
         }
-        return -1;
+
     }
-    
+
     /**
      * Verifica se o ROB está vazio
      */
     private boolean robVazio() {
+        boolean resultado = true;
         for (ReorderBufferSlot slot : rob) {
             if (slot.isBusy()) {
-                return false;
+                resultado = false;
             }
         }
-        return true;
+        return resultado;
     }
-    
+
+    // Funções Requisitadas pela GUI
+
     /**
      * Executa a simulação completa
      */
     public void executarCompleto() {
         while (!simulacaoCompleta) {
             proximoCiclo();
-            
+
             // Proteção contra loop infinito
             if (cicloAtual > 10000) {
                 System.err.println("Simulação interrompida: muitos ciclos");
@@ -472,44 +582,36 @@ public class Simulador {
             }
         }
     }
-    
+
+    /**
+     * Carrega instruções de um arquivo
+     */
+    public void carregarInstrucoes(String nomeArquivo) throws IOException {
+        reiniciar();
+        instrucoes = InstructionParser.lerInstrucoes(nomeArquivo);
+        pc = 0;
+        logExecucao.add("Carregadas " + instrucoes.size() + " instruções do arquivo: " + nomeArquivo);
+    }
+
     /**
      * Calcula o IPC (Instructions Per Cycle)
      */
     public double calcularIPC() {
-        if (totalCiclos == 0) return 0.0;
+        if (totalCiclos == 0)
+            return 0.0;
         return (double) instrucoesExecutadas / totalCiclos;
     }
-    
-    /**
-     * Reinicia o simulador
+
+    /*
+     * Retorna o Buffer de Reordenamento
      */
-    public void reiniciar() {
-        inicializarSimulador();
+    public List<ReorderBufferSlot> getReorderBufferState() {
+        return rob;
     }
-    
-    // Métodos para a interface gráfica
-    public List<String> getInstructionStatus() {
-        List<String> status = new ArrayList<>();
-        for (int i = 0; i < instrucoes.size(); i++) {
-            Instrucao inst = instrucoes.get(i);
-            // Encontra informações da instrução no ROB
-            String estado = "Não emitida";
-            if (i < pc) {
-                estado = "Commitada";
-                // Verifica se ainda está no ROB
-                for (ReorderBufferSlot slot : rob) {
-                    if (slot.isBusy() && slot.getInstrucao() == inst) {
-                        estado = slot.getEstado().getDescricao();
-                        break;
-                    }
-                }
-            }
-            status.add(inst.toString() + " - " + estado);
-        }
-        return status;
-    }
-    
+
+    /*
+     * Retorna as Estações de Reserva
+     */
     public List<EstacaoDeReserva> getReservationStationsState() {
         List<EstacaoDeReserva> todas = new ArrayList<>();
         todas.addAll(estacoesAdd);
@@ -517,11 +619,10 @@ public class Simulador {
         todas.addAll(estacoesLoad);
         return todas;
     }
-    
-    public List<ReorderBufferSlot> getReorderBufferState() {
-        return rob;
-    }
-    
+
+    /*
+     * Retorna os estatus dos registradores
+     */
     public Map<String, Object> getRegisterStatus() {
         Map<String, Object> status = new HashMap<>();
         status.put("publico", new HashMap<>(bancoRegistradores));
@@ -530,14 +631,37 @@ public class Simulador {
         status.put("livres", new ArrayList<>(filaRegistradoresLivres));
         return status;
     }
-    
+
     // Getters para estatísticas
-    public int getCicloAtual() { return cicloAtual; }
-    public int getTotalCiclos() { return totalCiclos; }
-    public int getCiclosBolha() { return ciclosBolha; }
-    public boolean isSimulacaoCompleta() { return simulacaoCompleta; }
-    public int getInstrucoesExecutadas() { return instrucoesExecutadas; }
-    public List<String> getLogExecucao() { return logExecucao; }
-    public int getPc() { return pc; }
-    public int getTotalInstrucoes() { return instrucoes.size(); }
+    public int getCicloAtual() {
+        return cicloAtual;
+    }
+
+    public int getTotalCiclos() {
+        return totalCiclos;
+    }
+
+    public int getCiclosBolha() {
+        return ciclosBolha;
+    }
+
+    public boolean isSimulacaoCompleta() {
+        return simulacaoCompleta;
+    }
+
+    public int getInstrucoesExecutadas() {
+        return instrucoesExecutadas;
+    }
+
+    public List<String> getLogExecucao() {
+        return logExecucao;
+    }
+
+    public int getPc() {
+        return pc;
+    }
+
+    public int getTotalInstrucoes() {
+        return instrucoes.size();
+    }
 }

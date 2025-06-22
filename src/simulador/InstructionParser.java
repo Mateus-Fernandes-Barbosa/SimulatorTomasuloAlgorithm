@@ -67,7 +67,7 @@ public class InstructionParser {
         String operandos = partes[1];
         
         OpCode op = OpCode.fromString(mnemonico);
-        
+        //System.out.println("Parseando instrução: " + op.toString() + " com operandos: " + operandos);
         // Remove espaços ao redor das vírgulas
         // Antes: R1,  R2,  R3
         operandos = operandos.replaceAll("\\s*,\\s*", ",");
@@ -113,10 +113,10 @@ public class InstructionParser {
             int fechaParenteses = enderecoStr.indexOf(')');
             
             String imediatoStr = enderecoStr.substring(0, abreParenteses);
-            String rs = enderecoStr.substring(abreParenteses + 1, fechaParenteses);
+            String reg1 = enderecoStr.substring(abreParenteses + 1, fechaParenteses);
             
             int imediato = Integer.parseInt(imediatoStr);
-            return new Instrucao(op, destino, rs, imediato, linha);
+            return new Instrucao(op, destino, reg1, imediato, linha);
         } else {
             throw new IllegalArgumentException("Formato de endereço LOAD inválido: " + linha);
         }
@@ -131,7 +131,7 @@ public class InstructionParser {
             throw new IllegalArgumentException("Formato STORE inválido: " + linha);
         }
         
-        String rs = partes[0].trim(); // Registrador com o valor a ser armazenado
+        String reg1 = partes[0].trim(); // Registrador com o valor a ser armazenado
         String enderecoStr = partes[1].trim();
         
         // Parseia formato: imediato(registrador)
@@ -143,7 +143,7 @@ public class InstructionParser {
             String rt = enderecoStr.substring(abreParenteses + 1, fechaParenteses);
             
             int imediato = Integer.parseInt(imediatoStr);
-            return new Instrucao(op, null, rs, rt, imediato, linha); // STORE não tem destino
+            return new Instrucao(op, null, reg1, rt, imediato, linha); // STORE não tem destino
         } else {
             throw new IllegalArgumentException("Formato de endereço STORE inválido: " + linha);
         }
@@ -158,11 +158,11 @@ public class InstructionParser {
             throw new IllegalArgumentException("Formato BEQ inválido: " + linha);
         }
         
-        String rs = partes[0].trim();
+        String reg1 = partes[0].trim();
         String rt = partes[1].trim();
         int imediato = Integer.parseInt(partes[2].trim());
         
-        return new Instrucao(op, null, rs, rt, imediato, linha); // BEQ não tem destino
+        return new Instrucao(op, null, reg1, rt, imediato, linha); // BEQ não tem destino
     }
     
     /**
@@ -175,14 +175,14 @@ public class InstructionParser {
         }
         
         String destino = partes[0].trim();
-        String rs = partes[1].trim();
+        String reg1 = partes[1].trim();
         int imediato = Integer.parseInt(partes[2].trim());
         
-        return new Instrucao(op, destino, rs, imediato, linha);
+        return new Instrucao(op, destino, reg1, imediato, linha);
     }
     
     /**
-     * Parseia instruções com três registradores (ex: ADD R1,R2,R3)
+     * Pareg1eia instruções com três registradores (ex: ADD R1,R2,R3)
      */
     private static Instrucao parsearRegistrador(OpCode op, String operandos, String linha) {
         String[] partes = operandos.split(",");
@@ -191,10 +191,10 @@ public class InstructionParser {
         }
         
         String destino = partes[0].trim();
-        String rs = partes[1].trim();
+        String reg1 = partes[1].trim();
         String rt = partes[2].trim();
         
-        return new Instrucao(op, destino, rs, rt, linha);
+        return new Instrucao(op, destino, reg1, rt, linha);
     }
     
     /**

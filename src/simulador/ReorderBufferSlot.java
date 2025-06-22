@@ -53,25 +53,19 @@ public class ReorderBufferSlot {
      * Verifica se o slot está pronto para commit
      */
     public boolean prontoParaCommit() {
-        return busy && estado == EstadoInstrucao.CONCLUIDA && pronto;
+        return busy && estado == EstadoInstrucao.CONCLUIDA;
     }
     
     /**
      * Marca o resultado como pronto
      */
     public void marcarResultadoPronto(Float valor, int ciclo) {
-        this.resultado = valor;
+        setResultado(valor);
         this.pronto = true;
         this.estado = EstadoInstrucao.CONCLUIDA;
         this.cicloEscrita = ciclo;
     }
     
-    /**
-     * Realiza o commit da instrução
-     */
-    public void commit(int ciclo) {
-        this.cicloCommit = ciclo;
-    }
     
     // Getters e Setters
     public boolean isBusy() {

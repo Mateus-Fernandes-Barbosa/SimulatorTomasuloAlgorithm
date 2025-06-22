@@ -10,6 +10,7 @@ public class Instrucao {
     private String reg2;  // Segundo registrador fonte
     private int imediato; // Valor imediato
     private String instrucaoOriginal; // Texto original da instrução
+    private int ciclosDuracao; // Duração em ciclos da instrução
     
     public Instrucao(OpCode op, String destino, String reg1, String reg2, int imediato, String instrucaoOriginal) {
         this.op = op;
@@ -18,6 +19,43 @@ public class Instrucao {
         this.reg2 = reg2;
         this.imediato = imediato;
         this.instrucaoOriginal = instrucaoOriginal;
+        switch (op) {
+                case ADD:
+                    this.ciclosDuracao = 3;
+                    break;
+                case SUB:
+                    this.ciclosDuracao = 3;
+                    break;
+                case ADDI:
+                    this.ciclosDuracao = 3;
+                    break;
+                case SUBI:
+                    this.ciclosDuracao = 3;
+                    break;
+                case BEQ:
+                    this.ciclosDuracao = 3;
+                    break;
+                case MUL:
+                    this.ciclosDuracao = 3;
+                    break;
+                case MULI:
+                    this.ciclosDuracao = 3;
+                    break;
+                case DIV:
+                    this.ciclosDuracao = 3;
+                    break;
+                case DIVI:
+                    this.ciclosDuracao = 3;
+                    break;
+                case LOAD:
+                    this.ciclosDuracao = 5;
+                    break;
+                case STORE:
+                    this.ciclosDuracao = 5;
+                    break;
+                default:
+                    this.ciclosDuracao = 1;
+            }
     }
     
     // Construtor para instruções sem valor imediato
@@ -47,19 +85,19 @@ public class Instrucao {
         this.destino = destino;
     }
     
-    public String getRs() {
+    public String getReg1() {
         return reg1;
     }
     
-    public void setRs(String reg1) {
+    public void setReg1(String reg1) {
         this.reg1 = reg1;
     }
     
-    public String getRt() {
+    public String getReg2() {
         return reg2;
     }
     
-    public void setRt(String reg2) {
+    public void setReg2(String reg2) {
         this.reg2 = reg2;
     }
     
@@ -78,6 +116,11 @@ public class Instrucao {
     public void setInstrucaoOriginal(String instrucaoOriginal) {
         this.instrucaoOriginal = instrucaoOriginal;
     }
+
+    public int getCiclosDuracao() {
+        return ciclosDuracao;
+    }
+    
     
     @Override
     public String toString() {
@@ -88,14 +131,14 @@ public class Instrucao {
     /**
      * Verifica se a instrução escreve em um registrador
      */
-    public boolean escreveRegistrador() {
+    public boolean podeEscrever() {
         return destino != null && !op.isBranch() && op != OpCode.STORE;
     }
     
     /**
      * Verifica se a instrução usa dois registradores fonte
      */
-    public boolean usaDoisRegistradoresFonte() {
+    public boolean usaDoisStringesFonte() {
         return reg2 != null && !op.hasImmediate();
     }
 }

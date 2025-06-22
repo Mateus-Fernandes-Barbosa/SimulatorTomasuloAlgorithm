@@ -5,8 +5,11 @@ package simulador;
  */
 public enum EstadoInstrucao {
     PROCESSANDO("Processando"),
+    EXECUTANDO("Executando"),
     ESCRITA("Escrita"),
+    CANCELADA("Cancelada"),
     CONCLUIDA("Concluída");
+
     
     private final String descricao;
     
