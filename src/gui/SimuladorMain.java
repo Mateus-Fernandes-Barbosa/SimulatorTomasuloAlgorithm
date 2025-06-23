@@ -473,6 +473,14 @@ public class SimuladorMain extends JFrame {
             progressBar.setValue(progresso);
             progressBar.setString(progresso + "%");
         }
+        // Exibe alerta visual se houve detecção de loop
+        if (simulador.getTotalCiclos() == 0 && simulador.isSimulacaoCompleta()) {
+            progressBar.setForeground(Color.RED);
+            progressBar.setString("Timeout!");
+            labelCiclo.setText("Ciclo: 0 (Timeout)");
+        } else {
+            progressBar.setForeground(UIManager.getColor("ProgressBar.foreground"));
+        }
     }
     
     private void atualizarLog() {

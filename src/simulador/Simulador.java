@@ -9,6 +9,9 @@ import java.util.Map;
 import java.util.Queue;
 
 public class Simulador {
+    private static final int LIMITE_CICLOS = 100; // limite de ciclos para detectar loop
+    private static final int LIMITE_INSTRUCAO = 50; // limite de ciclos para uma instrução
+
     // Configurações do simulador
     private static final int TAMANHO_ROB = 8;
     private static final int NUM_ESTACOES_ADD = 3;
@@ -194,6 +197,25 @@ public class Simulador {
         //System.out.println("Executando ciclo: " + cicloAtual);
         if (!simulacaoCompleta) {
             logExecucao.add("Ciclo " + (cicloAtual+1));
+
+            // --- LOOP DETECTION ---
+            // Verifica se o número de ciclos excedeu o limite
+            if (cicloAtual > LIMITE_CICLOS) {
+                logExecucao.add("Timeout: Número de ciclos excedeu o limite de " + LIMITE_CICLOS + ". Simulação interrompida.");
+                simulacaoCompleta = true;
+                logExecucao.add("Simulação completa. Total de ciclos gastos: 0 (loop detectado)");
+                return;
+            }
+            // Verifica se alguma instrução está "presa" por muitos ciclos
+            for (Instrucao inst : instrucoes) {
+                if (inst.getEstadoExecucao() > 0 && inst.getQtdeExecucoes() > LIMITE_INSTRUCAO) {
+                    logExecucao.add("Timeout: Instrução presa por mais de " + LIMITE_INSTRUCAO + " ciclos: " + inst.toString());
+                    simulacaoCompleta = true;
+                    logExecucao.add("Simulação completa. Total de ciclos gastos: 0 (loop detectado)");
+                    return;
+                }
+            }
+            // --- FIM LOOP DETECTION ---
 
             writeResult();
 
