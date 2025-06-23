@@ -35,7 +35,7 @@ javac -d bin src/simulador/*.java src/gui/*.java
 
 ### 2. Execução
 ```bash
-java -cp bin gui.SimuladorGUI
+java -cp bin gui.SimuladorMain
 ```
 
 ### 3. Interface Gráfica
@@ -86,10 +86,12 @@ BEQ R1,R2,10     # if (R1 == R2) PC += 10
 
 ### 5. Exemplo de Uso
 
-1. Abra o simulador executando `java -cp bin gui.SimuladorGUI`
-2. Clique em "Carregar Arquivo" e selecione `exemplo.txt`
-3. Use "Próximo Ciclo" para ver a execução passo a passo
-4. Ou use "Executar Completo" para ver o resultado final
+## Com java runtime
+1. Compile o programa com `javac -d bin src/simulador/*.java src/gui/*.java`
+2. Abra o simulador executando `java -cp bin gui.SimuladorMain`
+3. Clique em "Carregar Arquivo" e selecione `exemplo.txt`
+4. Use "Próximo Ciclo" para ver a execução passo a passo
+5. Ou use "Executar Completo" para ver o resultado final
 
 ## Arquitetura do Código
 
